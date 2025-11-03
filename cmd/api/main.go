@@ -5,16 +5,14 @@ import (
 	"net/http"
 
 	"github.com/edgar-lins/controle-financeiro/internal/database"
-	"github.com/edgar-lins/controle-financeiro/internal/handlers"
+	"github.com/edgar-lins/controle-financeiro/internal/routes"
 )
 
 func main() {
 	db := database.Connect()
 	defer db.Close()
 
-	expenseHandler := handlers.ExpenseHandler{DB: db}
-
-	http.HandleFunc("/expenses", expenseHandler.CreateExpense)
+	routes.SetupRoutes(db)
 
 	fmt.Println("Servidor iniciado em http://localhost:8080")
 	http.ListenAndServe(":8080", nil)
