@@ -9,6 +9,7 @@ import (
 
 func SetupRoutes(db *sql.DB) {
 	expenseHandler := handlers.ExpenseHandler{DB: db}
+	summaryHandler := handlers.SummaryHandler{DB: db}
 
 	http.HandleFunc("/expenses", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
@@ -19,4 +20,6 @@ func SetupRoutes(db *sql.DB) {
 			http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
 		}
 	})
+
+	http.HandleFunc("/summary", summaryHandler.GetSummary)
 }
