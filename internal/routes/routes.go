@@ -10,6 +10,7 @@ import (
 func SetupRoutes(db *sql.DB) {
 	expenseHandler := handlers.ExpenseHandler{DB: db}
 	summaryHandler := handlers.SummaryHandler{DB: db}
+	incomeHandler := handlers.IncomeHandler{DB: db}
 
 	http.HandleFunc("/expenses", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
@@ -22,4 +23,5 @@ func SetupRoutes(db *sql.DB) {
 	})
 
 	http.HandleFunc("/summary", summaryHandler.GetSummary)
+	http.HandleFunc("/incomes", incomeHandler.CreateIncome)
 }
