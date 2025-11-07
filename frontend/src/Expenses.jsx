@@ -17,10 +17,12 @@ export default function Expenses() {
   async function fetchExpenses() {
     try {
       const res = await fetch("http://localhost:8080/expenses");
+      if (!res.ok) throw new Error("Erro ao buscar gastos");
       const data = await res.json();
-      setExpenses(data);
+      setExpenses(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro ao buscar gastos:", error);
+      setExpenses([]);
     }
   }
 
@@ -144,9 +146,8 @@ export default function Expenses() {
       <h2 className="text-xl font-semibold mt-8 mb-3 text-center">
         Meus Gastos
       </h2>
-      {expenses.length === 0 ? (
-        <p className="text-center text-gray-500">Nenhum gasto registrado ainda.</p>
-      ) : (
+
+      {Array.isArray(expenses) && expenses.length > 0 ? (
         <ul className="divide-y divide-gray-200">
           {expenses.map((exp) => (
             <li
@@ -156,7 +157,8 @@ export default function Expenses() {
               <div>
                 <p className="font-medium">{exp.description}</p>
                 <p className="text-sm text-gray-500">
-                  {exp.category} — R$ {exp.amount.toFixed(2)}
+                  {exp.category || "sem categoria"} — R${" "}
+                  {exp.amount ? exp.amount.toFixed(2) : "0.00"}
                 </p>
               </div>
               <button
@@ -169,6 +171,8 @@ export default function Expenses() {
             </li>
           ))}
         </ul>
+      ) : (
+        <p className="text-center text-gray-500">Nenhum gasto registrado ainda.</p>
       )}
     </div>
   );

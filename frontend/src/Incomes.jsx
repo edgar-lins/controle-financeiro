@@ -16,10 +16,12 @@ export default function Incomes() {
   async function fetchIncomes() {
     try {
       const res = await fetch("http://localhost:8080/incomes");
+      if (!res.ok) throw new Error("Erro ao buscar rendas");
       const data = await res.json();
-      setIncomes(data);
+      setIncomes(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro ao buscar rendas:", error);
+      setIncomes([]);
     }
   }
 
@@ -131,10 +133,11 @@ export default function Incomes() {
       )}
 
       {/* Lista de rendas */}
-      <h2 className="text-xl font-semibold mt-8 mb-3 text-center">Minhas Rendas</h2>
-      {incomes.length === 0 ? (
-        <p className="text-center text-gray-500">Nenhuma renda registrada ainda.</p>
-      ) : (
+      <h2 className="text-xl font-semibold mt-8 mb-3 text-center">
+        Minhas Rendas
+      </h2>
+
+      {Array.isArray(incomes) && incomes.length > 0 ? (
         <ul className="divide-y divide-gray-200">
           {incomes.map((inc) => (
             <li
@@ -144,8 +147,10 @@ export default function Incomes() {
               <div>
                 <p className="font-medium">{inc.description}</p>
                 <p className="text-sm text-gray-500">
-                  R$ {inc.amount.toFixed(2)} —{" "}
-                  {new Date(inc.date).toLocaleDateString("pt-BR")}
+                  R$ {inc.amount ? inc.amount.toFixed(2) : "0.00"} —{" "}
+                  {inc.date
+                    ? new Date(inc.date).toLocaleDateString("pt-BR")
+                    : "Data não informada"}
                 </p>
               </div>
               <button
@@ -158,6 +163,10 @@ export default function Incomes() {
             </li>
           ))}
         </ul>
+      ) : (
+        <p className="text-center text-gray-500">
+          Nenhuma renda registrada ainda.
+        </p>
       )}
     </div>
   );
