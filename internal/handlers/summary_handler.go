@@ -14,16 +14,17 @@ type SummaryHandler struct {
 }
 
 type Summary struct {
-	Mes         string  `json:"mes"`
-	Ano         int     `json:"ano"`
-	RendaTotal  float64 `json:"renda_total"`
-	GastoTotal  float64 `json:"gasto_total"`
-	IdealFixos  float64 `json:"ideal_fixos"`
-	IdealLazer  float64 `json:"ideal_lazer"`
-	IdealInvest float64 `json:"ideal_invest"`
-	RealFixos   float64 `json:"real_fixos"`
-	RealLazer   float64 `json:"real_lazer"`
-	RealInvest  float64 `json:"real_invest"`
+	Mes           string  `json:"mes"`
+	Ano           int     `json:"ano"`
+	RendaTotal    float64 `json:"renda_total"`
+	GastoTotal    float64 `json:"gasto_total"`
+	IdealFixos    float64 `json:"ideal_fixos"`
+	IdealLazer    float64 `json:"ideal_lazer"`
+	IdealInvest   float64 `json:"ideal_invest"`
+	RealFixos     float64 `json:"real_fixos"`
+	RealLazer     float64 `json:"real_lazer"`
+	RealInvest    float64 `json:"real_invest"`
+	SaldoRestante float64 `json:"saldo_restante"`
 }
 
 func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
@@ -112,16 +113,17 @@ func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 	`, month, year).Scan(&realInvest)
 
 	summary := Summary{
-		Mes:         now.Month().String(),
-		Ano:         year,
-		RendaTotal:  totalIncome,
-		GastoTotal:  totalExpenses,
-		IdealFixos:  totalIncome * 0.5,
-		IdealLazer:  totalIncome * 0.3,
-		IdealInvest: totalIncome * 0.2,
-		RealFixos:   realFixos,
-		RealLazer:   realLazer,
-		RealInvest:  realInvest,
+		Mes:           now.Month().String(),
+		Ano:           year,
+		RendaTotal:    totalIncome,
+		GastoTotal:    totalExpenses,
+		IdealFixos:    totalIncome * 0.5,
+		IdealLazer:    totalIncome * 0.3,
+		IdealInvest:   totalIncome * 0.2,
+		RealFixos:     realFixos,
+		RealLazer:     realLazer,
+		RealInvest:    realInvest,
+		SaldoRestante: totalIncome - (realFixos + realLazer + realInvest),
 	}
 
 	w.Header().Set("Content-Type", "application/json")

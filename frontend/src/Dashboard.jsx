@@ -23,8 +23,10 @@ export default function Dashboard() {
     fetchSummary();
   }, [refreshKey]); // 👈 Recarrega quando refreshKey muda
 
-  if (loading) return <p className="text-center mt-10 text-gray-600">Carregando resumo...</p>;
-  if (!summary) return <p className="text-center mt-10 text-red-500">Erro ao carregar dados 😢</p>;
+  if (loading)
+    return <p className="text-center mt-10 text-gray-600">Carregando resumo...</p>;
+  if (!summary)
+    return <p className="text-center mt-10 text-red-500">Erro ao carregar dados 😢</p>;
 
   return (
     <div className="max-w-2xl mx-auto p-6 text-gray-800">
@@ -33,6 +35,7 @@ export default function Dashboard() {
         {summary.mes} / {summary.ano}
       </p>
 
+      {/* Bloco de renda e gastos */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-green-100 p-4 rounded-xl text-center">
           <p className="text-sm text-gray-600">Renda Total</p>
@@ -49,21 +52,53 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Distribuição 50/30/20 */}
       <div className="mt-6 bg-gray-100 p-4 rounded-xl">
-        <h2 className="text-lg font-semibold mb-3 text-center">Distribuição 50 / 30 / 20</h2>
+        <h2 className="text-lg font-semibold mb-3 text-center">
+          Distribuição 50 / 30 / 20
+        </h2>
         <div className="space-y-3">
-          <Category name="Fixos" ideal={summary.ideal_fixos} real={summary.real_fixos} color="blue" />
-          <Category name="Lazer" ideal={summary.ideal_lazer} real={summary.real_lazer} color="purple" />
-          <Category name="Investimentos" ideal={summary.ideal_invest} real={summary.real_invest} color="yellow" />
+          <Category
+            name="Fixos"
+            ideal={summary.ideal_fixos}
+            real={summary.real_fixos}
+            color="blue"
+          />
+          <Category
+            name="Lazer"
+            ideal={summary.ideal_lazer}
+            real={summary.real_lazer}
+            color="purple"
+          />
+          <Category
+            name="Investimentos"
+            ideal={summary.ideal_invest}
+            real={summary.real_invest}
+            color="yellow"
+          />
         </div>
       </div>
+
+      {/* Saldo Restante */}
+      <div className="mt-4 bg-white p-4 rounded-xl text-center shadow-sm">
+        <p className="text-sm text-gray-600">Saldo Restante Real</p>
+        <p
+          className={`text-2xl font-bold ${
+            summary.saldo_restante >= 0 ? "text-green-700" : "text-red-700"
+          }`}
+        >
+          R$ {summary.saldo_restante.toFixed(2)}
+        </p>
+      </div>
+
+
     </div>
   );
 }
 
 // Componente para exibir cada categoria do 50/30/20
 function Category({ name, ideal, real, color }) {
-  const perc = ((real / ideal) * 100).toFixed(1);
+  const perc = ideal > 0 ? ((real / ideal) * 100).toFixed(1) : 0;
   const statusColor =
     perc < 80
       ? "text-yellow-600"
@@ -78,7 +113,9 @@ function Category({ name, ideal, real, color }) {
         <p className="text-sm text-gray-500">Ideal: R$ {ideal.toFixed(2)}</p>
       </div>
       <div className="text-right">
-        <p className={`font-semibold ${statusColor}`}>R$ {real.toFixed(2)}</p>
+        <p className={`font-semibold ${statusColor}`}>
+          R$ {real ? real.toFixed(2) : "0.00"}
+        </p>
         <p className="text-xs text-gray-500">{perc}% do ideal</p>
       </div>
     </div>
