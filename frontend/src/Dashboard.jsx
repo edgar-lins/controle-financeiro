@@ -61,6 +61,7 @@ export default function Dashboard() {
   );
 }
 
+// Componente para exibir cada categoria do 50/30/20
 function Category({ name, ideal, real, color }) {
   const perc = ((real / ideal) * 100).toFixed(1);
   const statusColor =
