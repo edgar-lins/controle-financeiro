@@ -24,4 +24,5 @@ func SetupRoutes(db *sql.DB) {
 
 	http.HandleFunc("/summary", summaryHandler.GetSummary)
 	http.HandleFunc("/incomes", incomeHandler.CreateIncome)
+	http.HandleFunc("/expenses/delete", expenseHandler.DeleteExpense)
 }
