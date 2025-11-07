@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
+import { useSummary } from "./SummaryContext";
 
 export default function Dashboard() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { refreshKey } = useSummary();
 
   useEffect(() => {
     async function fetchSummary() {
       try {
+        setLoading(true);
         const res = await fetch("http://localhost:8080/summary");
         const data = await res.json();
         setSummary(data);
@@ -18,7 +21,7 @@ export default function Dashboard() {
     }
 
     fetchSummary();
-  }, []);
+  }, [refreshKey]); // 👈 Recarrega quando refreshKey muda
 
   if (loading) return <p className="text-center mt-10 text-gray-600">Carregando resumo...</p>;
   if (!summary) return <p className="text-center mt-10 text-red-500">Erro ao carregar dados 😢</p>;

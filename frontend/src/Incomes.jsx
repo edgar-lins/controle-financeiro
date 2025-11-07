@@ -1,13 +1,10 @@
 import { useState } from "react";
+import { useSummary } from "./SummaryContext"; // 👈 importa
 
 export default function Incomes() {
-  const [form, setForm] = useState({
-    description: "",
-    amount: "",
-    date: "",
-  });
-
+  const [form, setForm] = useState({ description: "", amount: "", date: "" });
   const [message, setMessage] = useState("");
+  const { refreshSummary } = useSummary(); // 👈 pega função
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -27,6 +24,7 @@ export default function Incomes() {
       if (res.ok) {
         setMessage("✅ Renda cadastrada com sucesso!");
         setForm({ description: "", amount: "", date: "" });
+        refreshSummary(); // 👈 atualiza dashboard
       } else {
         setMessage("❌ Erro ao cadastrar renda.");
       }
@@ -35,6 +33,7 @@ export default function Incomes() {
       setMessage("❌ Erro de conexão com o servidor.");
     }
   }
+
 
   return (
     <div className="max-w-md mx-auto p-6 bg-white rounded-xl shadow">

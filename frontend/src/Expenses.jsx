@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSummary } from "./SummaryContext"; // 👈 importa
 
 export default function Expenses() {
   const [form, setForm] = useState({
@@ -9,6 +10,7 @@ export default function Expenses() {
   });
 
   const [message, setMessage] = useState("");
+  const { refreshSummary } = useSummary(); // 👈 pega função
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -27,6 +29,7 @@ export default function Expenses() {
       if (res.ok) {
         setMessage("✅ Gasto cadastrado com sucesso!");
         setForm({ description: "", amount: "", category: "", payment_method: "" });
+        refreshSummary(); // 👈 atualiza dashboard
       } else {
         setMessage("❌ Erro ao cadastrar gasto.");
       }
