@@ -22,7 +22,18 @@ func SetupRoutes(db *sql.DB) {
 		}
 	})
 
+	http.HandleFunc("/incomes", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			incomeHandler.CreateIncome(w, r)
+		} else if r.Method == http.MethodGet {
+			incomeHandler.GetIncomes(w, r)
+		} else {
+			http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
+		}
+	})
+
 	http.HandleFunc("/summary", summaryHandler.GetSummary)
-	http.HandleFunc("/incomes", incomeHandler.CreateIncome)
 	http.HandleFunc("/expenses/delete", expenseHandler.DeleteExpense)
+	http.HandleFunc("/incomes/delete", incomeHandler.DeleteIncome)
+
 }

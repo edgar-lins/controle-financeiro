@@ -49,3 +49,52 @@ func (h *IncomeHandler) CreateIncome(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(income)
 }
+
+func (h *IncomeHandler) GetIncomes(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
+		return
+	}
+
+	rows, err := h.DB.Query(`SELECT id, description, amount, date, month, year FROM incomes ORDER BY date DESC`)
+	if err != nil {
+		http.Error(w, "Erro ao buscar rendas", http.StatusInternalServerError)
+		fmt.Println("Erro:", err)
+		return
+	}
+	defer rows.Close()
+
+	var incomes []models.Income
+	for rows.Next() {
+		var income models.Income
+		if err := rows.Scan(&income.ID, &income.Description, &income.Amount, &income.Date, &income.Month, &income.Year); err != nil {
+			http.Error(w, "Erro ao ler rendas", http.StatusInternalServerError)
+			return
+		}
+		incomes = append(incomes, income)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(incomes)
+}
+
+func (h *IncomeHandler) DeleteIncome(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
+		return
+	}
+
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		http.Error(w, "ID é obrigatório", http.StatusBadRequest)
+		return
+	}
+
+	_, err := h.DB.Exec(`DELETE FROM incomes WHERE id = $1`, id)
+	if err != nil {
+		http.Error(w, "Erro ao deletar renda", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
