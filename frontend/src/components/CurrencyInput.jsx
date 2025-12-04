@@ -38,6 +38,7 @@ export function CurrencyInput({ value, onChange, ...props }) {
     const numValue = parseFloat(input);
     if (!isNaN(numValue)) {
       onChange(numValue.toString());
+      setLocalValue("");
     } else {
       onChange("");
       setLocalValue("");

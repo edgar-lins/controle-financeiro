@@ -185,17 +185,6 @@ export default function Login({ onLogin }) {
           </button>
         </form>
 
-        {/* Message */}
-        {message && (
-          <div className={`mt-4 p-3 rounded-lg text-center text-sm font-medium ${
-            message.startsWith("✅")
-              ? "bg-emerald-600/30 border border-emerald-600 text-emerald-200"
-              : "bg-red-600/30 border border-red-600 text-red-200"
-          }`}>
-            {message}
-          </div>
-        )}
-
         {/* Toggle */}
         <div className="mt-6 pt-6 border-t border-white/10">
           <p className="text-center text-gray-400 text-sm mb-3">
