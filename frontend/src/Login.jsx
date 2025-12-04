@@ -34,7 +34,8 @@ export default function Login({ onLogin }) {
       : { email: form.email, password: form.password };
 
     try {
-      const res = await fetch(`http://localhost:8080${endpoint}`, {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const res = await fetch(`${apiUrl}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
