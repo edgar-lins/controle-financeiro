@@ -13,6 +13,8 @@ func SetupRoutes(db *sql.DB) {
 	summaryHandler := handlers.SummaryHandler{DB: db}
 	incomeHandler := handlers.IncomeHandler{DB: db}
 	authHandler := handlers.AuthHandler{DB: db}
+	accountHandler := handlers.AccountHandler{DB: db}
+	goalHandler := handlers.GoalHandler{DB: db}
 
 	// Auth endpoints (public)
 	http.HandleFunc("/auth/signup", authHandler.Signup)
@@ -39,7 +41,37 @@ func SetupRoutes(db *sql.DB) {
 	})
 
 	http.HandleFunc("/summary", middleware.WithAuth(summaryHandler.GetSummary))
+	http.HandleFunc("/summary/history", middleware.WithAuth(summaryHandler.GetMonthlyHistory))
 	http.HandleFunc("/expenses/delete", middleware.WithAuth(expenseHandler.DeleteExpense))
+	http.HandleFunc("/expenses/update", middleware.WithAuth(expenseHandler.UpdateExpense))
 	http.HandleFunc("/incomes/delete", middleware.WithAuth(incomeHandler.DeleteIncome))
+	http.HandleFunc("/incomes/update", middleware.WithAuth(incomeHandler.UpdateIncome))
+
+	// Premium features - Accounts
+	http.HandleFunc("/accounts", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			middleware.WithAuth(accountHandler.CreateAccount)(w, r)
+		} else if r.Method == http.MethodGet {
+			middleware.WithAuth(accountHandler.GetAccounts)(w, r)
+		} else {
+			http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
+		}
+	})
+	http.HandleFunc("/accounts/delete", middleware.WithAuth(accountHandler.DeleteAccount))
+	http.HandleFunc("/accounts/update", middleware.WithAuth(accountHandler.UpdateAccount))
+
+	// Premium features - Goals
+	http.HandleFunc("/goals", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			middleware.WithAuth(goalHandler.CreateGoal)(w, r)
+		} else if r.Method == http.MethodGet {
+			middleware.WithAuth(goalHandler.GetGoals)(w, r)
+		} else {
+			http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
+		}
+	})
+	http.HandleFunc("/goals/delete", middleware.WithAuth(goalHandler.DeleteGoal))
+	http.HandleFunc("/goals/update", middleware.WithAuth(goalHandler.UpdateGoal))
+	http.HandleFunc("/goals/add-money", middleware.WithAuth(goalHandler.AddMoneyToGoal))
 
 }

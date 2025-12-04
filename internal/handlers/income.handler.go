@@ -36,16 +36,41 @@ func (h *IncomeHandler) CreateIncome(w http.ResponseWriter, r *http.Request) {
 
 	userIDVal := r.Context().Value(middleware.UserIDKey)
 	userID, _ := userIDVal.(int)
+
+	// Start transaction
+	tx, err := h.DB.Begin()
+	if err != nil {
+		http.Error(w, "Erro ao iniciar transação", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
 	query := `
-		INSERT INTO incomes (description, amount, date, month, year, user_id)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO incomes (description, amount, date, month, year, user_id, account_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id;
 	`
 
-	err = h.DB.QueryRow(query, income.Description, income.Amount, income.Date, income.Month, income.Year, userID).Scan(&income.ID)
+	err = tx.QueryRow(query, income.Description, income.Amount, income.Date, income.Month, income.Year, userID, income.AccountID).Scan(&income.ID)
 	if err != nil {
 		http.Error(w, "Erro ao inserir renda", http.StatusInternalServerError)
 		fmt.Println("Erro:", err)
+		return
+	}
+
+	// Update account balance if account_id is provided
+	if income.AccountID != nil {
+		_, err = tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3`, income.Amount, income.AccountID, userID)
+		if err != nil {
+			http.Error(w, "Erro ao atualizar saldo da conta", http.StatusInternalServerError)
+			fmt.Println("Erro:", err)
+			return
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		http.Error(w, "Erro ao confirmar transação", http.StatusInternalServerError)
 		return
 	}
 
@@ -61,7 +86,7 @@ func (h *IncomeHandler) GetIncomes(w http.ResponseWriter, r *http.Request) {
 
 	userIDVal := r.Context().Value(middleware.UserIDKey)
 	userID, _ := userIDVal.(int)
-	rows, err := h.DB.Query(`SELECT id, description, amount, date, month, year FROM incomes WHERE user_id = $1 ORDER BY date DESC`, userID)
+	rows, err := h.DB.Query(`SELECT id, description, amount, date, month, year, account_id FROM incomes WHERE user_id = $1 ORDER BY date DESC`, userID)
 	if err != nil {
 		http.Error(w, "Erro ao buscar rendas", http.StatusInternalServerError)
 		fmt.Println("Erro:", err)
@@ -72,7 +97,7 @@ func (h *IncomeHandler) GetIncomes(w http.ResponseWriter, r *http.Request) {
 	var incomes []models.Income
 	for rows.Next() {
 		var income models.Income
-		if err := rows.Scan(&income.ID, &income.Description, &income.Amount, &income.Date, &income.Month, &income.Year); err != nil {
+		if err := rows.Scan(&income.ID, &income.Description, &income.Amount, &income.Date, &income.Month, &income.Year, &income.AccountID); err != nil {
 			http.Error(w, "Erro ao ler rendas", http.StatusInternalServerError)
 			return
 		}
@@ -81,6 +106,89 @@ func (h *IncomeHandler) GetIncomes(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(incomes)
+}
+
+func (h *IncomeHandler) UpdateIncome(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
+		return
+	}
+
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		http.Error(w, "ID é obrigatório", http.StatusBadRequest)
+		return
+	}
+
+	userIDVal := r.Context().Value(middleware.UserIDKey)
+	userID, _ := userIDVal.(int)
+
+	var income models.Income
+	err := json.NewDecoder(r.Body).Decode(&income)
+	if err != nil {
+		http.Error(w, "Erro ao ler corpo da requisição", http.StatusBadRequest)
+		return
+	}
+
+	if income.Date.IsZero() {
+		income.Date = time.Now()
+	}
+	income.Month = int(income.Date.Month())
+	income.Year = income.Date.Year()
+
+	// Start transaction
+	tx, err := h.DB.Begin()
+	if err != nil {
+		http.Error(w, "Erro ao iniciar transação", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	// Get old income data
+	var oldAmount float64
+	var oldAccountID *int64
+	err = tx.QueryRow(`SELECT amount, account_id FROM incomes WHERE id = $1 AND user_id = $2`, id, userID).Scan(&oldAmount, &oldAccountID)
+	if err != nil {
+		http.Error(w, "Erro ao buscar renda", http.StatusInternalServerError)
+		return
+	}
+
+	// Update income
+	query := `UPDATE incomes SET description = $1, amount = $2, date = $3, month = $4, year = $5, account_id = $6 WHERE id = $7 AND user_id = $8`
+	_, err = tx.Exec(query, income.Description, income.Amount, income.Date, income.Month, income.Year, income.AccountID, id, userID)
+	if err != nil {
+		http.Error(w, "Erro ao atualizar renda", http.StatusInternalServerError)
+		fmt.Println("Erro:", err)
+		return
+	}
+
+	// Adjust account balances
+	// Restore old account balance
+	if oldAccountID != nil {
+		_, err = tx.Exec(`UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND user_id = $3`, oldAmount, oldAccountID, userID)
+		if err != nil {
+			http.Error(w, "Erro ao atualizar saldo da conta antiga", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Add to new account balance
+	if income.AccountID != nil {
+		_, err = tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3`, income.Amount, income.AccountID, userID)
+		if err != nil {
+			http.Error(w, "Erro ao atualizar saldo da nova conta", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		http.Error(w, "Erro ao confirmar transação", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"message": "Renda atualizada com sucesso"}`))
 }
 
 func (h *IncomeHandler) DeleteIncome(w http.ResponseWriter, r *http.Request) {
@@ -97,9 +205,43 @@ func (h *IncomeHandler) DeleteIncome(w http.ResponseWriter, r *http.Request) {
 
 	userIDVal := r.Context().Value(middleware.UserIDKey)
 	userID, _ := userIDVal.(int)
-	_, err := h.DB.Exec(`DELETE FROM incomes WHERE id = $1 AND user_id = $2`, id, userID)
+
+	// Start transaction
+	tx, err := h.DB.Begin()
+	if err != nil {
+		http.Error(w, "Erro ao iniciar transação", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	// Get income data before deleting to restore account balance
+	var amount float64
+	var accountID *int64
+	err = tx.QueryRow(`SELECT amount, account_id FROM incomes WHERE id = $1 AND user_id = $2`, id, userID).Scan(&amount, &accountID)
+	if err != nil {
+		http.Error(w, "Erro ao buscar renda", http.StatusInternalServerError)
+		return
+	}
+
+	// Delete income
+	_, err = tx.Exec(`DELETE FROM incomes WHERE id = $1 AND user_id = $2`, id, userID)
 	if err != nil {
 		http.Error(w, "Erro ao deletar renda", http.StatusInternalServerError)
+		return
+	}
+
+	// Restore account balance if account_id exists
+	if accountID != nil {
+		_, err = tx.Exec(`UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND user_id = $3`, amount, accountID, userID)
+		if err != nil {
+			http.Error(w, "Erro ao atualizar saldo da conta", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		http.Error(w, "Erro ao confirmar transação", http.StatusInternalServerError)
 		return
 	}
 

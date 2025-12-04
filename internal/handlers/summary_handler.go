@@ -29,6 +29,60 @@ type Summary struct {
 	SaldoRestante float64 `json:"saldo_restante"`
 }
 
+type MonthlyData struct {
+	Month    string  `json:"month"`
+	Year     int     `json:"year"`
+	Income   float64 `json:"income"`
+	Expenses float64 `json:"expenses"`
+	Balance  float64 `json:"balance"`
+	MonthNum int     `json:"month_num"`
+}
+
+func (h *SummaryHandler) GetMonthlyHistory(w http.ResponseWriter, r *http.Request) {
+	userIDVal := r.Context().Value(middleware.UserIDKey)
+	userID, _ := userIDVal.(int)
+
+	// Get last 12 months
+	var monthlyData []MonthlyData
+	now := time.Now()
+
+	for i := 11; i >= 0; i-- {
+		currentMonth := now.AddDate(0, -i, 0)
+		month := int(currentMonth.Month())
+		year := currentMonth.Year()
+
+		var income, expenses float64
+
+		h.DB.QueryRow(`
+			SELECT COALESCE(SUM(amount), 0)
+			FROM incomes
+			WHERE EXTRACT(MONTH FROM date) = $1
+			AND EXTRACT(YEAR FROM date) = $2
+			AND user_id = $3
+		`, month, year, userID).Scan(&income)
+
+		h.DB.QueryRow(`
+			SELECT COALESCE(SUM(amount), 0)
+			FROM expenses
+			WHERE EXTRACT(MONTH FROM date) = $1
+			AND EXTRACT(YEAR FROM date) = $2
+			AND user_id = $3
+		`, month, year, userID).Scan(&expenses)
+
+		monthlyData = append(monthlyData, MonthlyData{
+			Month:    currentMonth.Format("Jan"),
+			Year:     year,
+			Income:   income,
+			Expenses: expenses,
+			Balance:  income - expenses,
+			MonthNum: month,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(monthlyData)
+}
+
 func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	monthParam := r.URL.Query().Get("month")

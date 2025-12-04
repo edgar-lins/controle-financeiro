@@ -16,8 +16,10 @@ type AuthHandler struct {
 }
 
 type SignupRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email     string `json:"email"`
+	Password  string `json:"password"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
 }
 
 type LoginRequest struct {
@@ -26,7 +28,9 @@ type LoginRequest struct {
 }
 
 type TokenResponse struct {
-	Token string `json:"token"`
+	Token     string `json:"token"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
 }
 
 func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
@@ -39,8 +43,8 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Corpo inválido", http.StatusBadRequest)
 		return
 	}
-	if req.Email == "" || req.Password == "" {
-		http.Error(w, "Email e senha são obrigatórios", http.StatusBadRequest)
+	if req.Email == "" || req.Password == "" || req.FirstName == "" || req.LastName == "" {
+		http.Error(w, "Todos os campos são obrigatórios", http.StatusBadRequest)
 		return
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
@@ -48,7 +52,7 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Erro ao criar usuário", http.StatusInternalServerError)
 		return
 	}
-	_, err = h.DB.Exec(`INSERT INTO users(email, password_hash) VALUES($1, $2)`, req.Email, string(hash))
+	_, err = h.DB.Exec(`INSERT INTO users(email, password_hash, first_name, last_name) VALUES($1, $2, $3, $4)`, req.Email, string(hash), req.FirstName, req.LastName)
 	if err != nil {
 		http.Error(w, "Erro ao salvar usuário", http.StatusConflict)
 		return
@@ -67,8 +71,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var id int
-	var hash string
-	err := h.DB.QueryRow(`SELECT id, password_hash FROM users WHERE email = $1`, req.Email).Scan(&id, &hash)
+	var hash, firstName, lastName string
+	err := h.DB.QueryRow(`SELECT id, password_hash, first_name, last_name FROM users WHERE email = $1`, req.Email).Scan(&id, &hash, &firstName, &lastName)
 	if err != nil {
 		http.Error(w, "Credenciais inválidas", http.StatusUnauthorized)
 		return
@@ -92,5 +96,9 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(TokenResponse{Token: signed})
+	json.NewEncoder(w).Encode(TokenResponse{
+		Token:     signed,
+		FirstName: firstName,
+		LastName:  lastName,
+	})
 }

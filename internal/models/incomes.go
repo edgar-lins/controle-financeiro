@@ -9,4 +9,5 @@ type Income struct {
 	Date        time.Time `json:"date"`
 	Month       int       `json:"month"`
 	Year        int       `json:"year"`
+	AccountID   *int64    `json:"account_id"`
 }

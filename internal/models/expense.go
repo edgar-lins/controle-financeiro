@@ -9,4 +9,5 @@ type Expense struct {
 	Category      string    `json:"category"`
 	PaymentMethod string    `json:"payment_method"`
 	Date          time.Time `json:"date"`
+	AccountID     *int64    `json:"account_id"`
 }
