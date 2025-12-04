@@ -19,5 +19,4 @@ services:
 databases:
   - name: controle-financeiro-db
     databaseName: controle_financeiro
-    user: postgres
     plan: free
