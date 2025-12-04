@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/edgar-lins/controle-financeiro/internal/middleware"
 	"github.com/edgar-lins/controle-financeiro/internal/models"
 )
 
@@ -31,13 +32,16 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		expense.Date = time.Now()
 	}
 
+	userIDVal := r.Context().Value(middleware.UserIDKey)
+	userID, _ := userIDVal.(int)
+
 	query := `
-		INSERT INTO expenses (description, amount, category, payment_method, date)
-		VALUES ($1, $2, $3, $4, $5) 
+		INSERT INTO expenses (description, amount, category, payment_method, date, user_id)
+		VALUES ($1, $2, $3, $4, $5, $6) 
 		RETURNING id;
 	`
 
-	err = h.DB.QueryRow(query, expense.Description, expense.Amount, expense.Category, expense.PaymentMethod, expense.Date).Scan(&expense.ID)
+	err = h.DB.QueryRow(query, expense.Description, expense.Amount, expense.Category, expense.PaymentMethod, expense.Date, userID).Scan(&expense.ID)
 	if err != nil {
 		http.Error(w, "Erro ao inserir gasto no banco", http.StatusInternalServerError)
 		fmt.Println("Erro:", err)
@@ -54,7 +58,9 @@ func (h *ExpenseHandler) GetExpenses(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := h.DB.Query(`SELECT id, description, amount, category, payment_method, date FROM expenses ORDER BY date DESC`)
+	userIDVal := r.Context().Value(middleware.UserIDKey)
+	userID, _ := userIDVal.(int)
+	rows, err := h.DB.Query(`SELECT id, description, amount, category, payment_method, date FROM expenses WHERE user_id = $1 ORDER BY date DESC`, userID)
 	if err != nil {
 		http.Error(w, "Erro ao buscar gastos no banco", http.StatusInternalServerError)
 		fmt.Println("Erro:", err)
@@ -89,7 +95,9 @@ func (h *ExpenseHandler) DeleteExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.DB.Exec(`DELETE FROM expenses WHERE id = $1`, id)
+	userIDVal := r.Context().Value(middleware.UserIDKey)
+	userID, _ := userIDVal.(int)
+	_, err := h.DB.Exec(`DELETE FROM expenses WHERE id = $1 AND user_id = $2`, id, userID)
 	if err != nil {
 		http.Error(w, "Erro ao deletar gasto", http.StatusInternalServerError)
 		return

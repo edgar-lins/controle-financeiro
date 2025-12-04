@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/edgar-lins/controle-financeiro/internal/middleware"
 )
 
 type SummaryHandler struct {
@@ -31,6 +33,8 @@ func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	monthParam := r.URL.Query().Get("month")
 	yearParam := r.URL.Query().Get("year")
+	userIDVal := r.Context().Value(middleware.UserIDKey)
+	userID, _ := userIDVal.(int)
 
 	month := int(now.Month())
 	year := now.Year()
@@ -51,8 +55,8 @@ func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 	err := h.DB.QueryRow(`
 		SELECT COALESCE(SUM(amount), 0) 
 		FROM incomes
-		WHERE month = $1 AND year = $2
-	`, month, year).Scan(&totalIncome)
+		WHERE month = $1 AND year = $2 AND user_id = $3
+	`, month, year, userID).Scan(&totalIncome)
 	if err != nil {
 		http.Error(w, "Erro ao calcular renda", http.StatusInternalServerError)
 		fmt.Println("Erro:", err)
@@ -65,7 +69,8 @@ func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 		FROM expenses
 		WHERE EXTRACT(MONTH FROM date) = $1
 			AND EXTRACT(YEAR FROM date) = $2
-	`, month, year).Scan(&totalExpenses)
+			AND user_id = $3
+	`, month, year, userID).Scan(&totalExpenses)
 	if err != nil {
 		http.Error(w, "Erro ao calcular gastos", http.StatusInternalServerError)
 		fmt.Println("Erro:", err)
@@ -86,7 +91,8 @@ func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 		)
 		AND EXTRACT(MONTH FROM date) = $1
 		AND EXTRACT(YEAR FROM date) = $2
-	`, month, year).Scan(&realFixos)
+		AND user_id = $3
+	`, month, year, userID).Scan(&realFixos)
 
 	h.DB.QueryRow(`
 		SELECT COALESCE(SUM(amount), 0)
@@ -98,7 +104,8 @@ func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 		)
 		AND EXTRACT(MONTH FROM date) = $1
 		AND EXTRACT(YEAR FROM date) = $2
-	`, month, year).Scan(&realLazer)
+		AND user_id = $3
+	`, month, year, userID).Scan(&realLazer)
 
 	h.DB.QueryRow(`
 		SELECT COALESCE(SUM(amount), 0)
@@ -110,7 +117,8 @@ func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 		)
 		AND EXTRACT(MONTH FROM date) = $1
 		AND EXTRACT(YEAR FROM date) = $2
-	`, month, year).Scan(&realInvest)
+		AND user_id = $3
+	`, month, year, userID).Scan(&realInvest)
 
 	summary := Summary{
 		Mes:           now.Month().String(),

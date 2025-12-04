@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/edgar-lins/controle-financeiro/internal/middleware"
 	"github.com/edgar-lins/controle-financeiro/internal/models"
 )
 
@@ -33,13 +34,15 @@ func (h *IncomeHandler) CreateIncome(w http.ResponseWriter, r *http.Request) {
 	income.Month = int(income.Date.Month())
 	income.Year = income.Date.Year()
 
+	userIDVal := r.Context().Value(middleware.UserIDKey)
+	userID, _ := userIDVal.(int)
 	query := `
-		INSERT INTO incomes (description, amount, date, month, year)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO incomes (description, amount, date, month, year, user_id)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id;
 	`
 
-	err = h.DB.QueryRow(query, income.Description, income.Amount, income.Date, income.Month, income.Year).Scan(&income.ID)
+	err = h.DB.QueryRow(query, income.Description, income.Amount, income.Date, income.Month, income.Year, userID).Scan(&income.ID)
 	if err != nil {
 		http.Error(w, "Erro ao inserir renda", http.StatusInternalServerError)
 		fmt.Println("Erro:", err)
@@ -56,7 +59,9 @@ func (h *IncomeHandler) GetIncomes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := h.DB.Query(`SELECT id, description, amount, date, month, year FROM incomes ORDER BY date DESC`)
+	userIDVal := r.Context().Value(middleware.UserIDKey)
+	userID, _ := userIDVal.(int)
+	rows, err := h.DB.Query(`SELECT id, description, amount, date, month, year FROM incomes WHERE user_id = $1 ORDER BY date DESC`, userID)
 	if err != nil {
 		http.Error(w, "Erro ao buscar rendas", http.StatusInternalServerError)
 		fmt.Println("Erro:", err)
@@ -90,7 +95,9 @@ func (h *IncomeHandler) DeleteIncome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.DB.Exec(`DELETE FROM incomes WHERE id = $1`, id)
+	userIDVal := r.Context().Value(middleware.UserIDKey)
+	userID, _ := userIDVal.(int)
+	_, err := h.DB.Exec(`DELETE FROM incomes WHERE id = $1 AND user_id = $2`, id, userID)
 	if err != nil {
 		http.Error(w, "Erro ao deletar renda", http.StatusInternalServerError)
 		return

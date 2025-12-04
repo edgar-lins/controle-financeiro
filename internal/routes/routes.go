@@ -5,18 +5,24 @@ import (
 	"net/http"
 
 	"github.com/edgar-lins/controle-financeiro/internal/handlers"
+	"github.com/edgar-lins/controle-financeiro/internal/middleware"
 )
 
 func SetupRoutes(db *sql.DB) {
 	expenseHandler := handlers.ExpenseHandler{DB: db}
 	summaryHandler := handlers.SummaryHandler{DB: db}
 	incomeHandler := handlers.IncomeHandler{DB: db}
+	authHandler := handlers.AuthHandler{DB: db}
+
+	// Auth endpoints (public)
+	http.HandleFunc("/auth/signup", authHandler.Signup)
+	http.HandleFunc("/auth/login", authHandler.Login)
 
 	http.HandleFunc("/expenses", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
-			expenseHandler.CreateExpense(w, r)
+			middleware.WithAuth(expenseHandler.CreateExpense)(w, r)
 		} else if r.Method == http.MethodGet {
-			expenseHandler.GetExpenses(w, r)
+			middleware.WithAuth(expenseHandler.GetExpenses)(w, r)
 		} else {
 			http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
 		}
@@ -24,16 +30,16 @@ func SetupRoutes(db *sql.DB) {
 
 	http.HandleFunc("/incomes", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
-			incomeHandler.CreateIncome(w, r)
+			middleware.WithAuth(incomeHandler.CreateIncome)(w, r)
 		} else if r.Method == http.MethodGet {
-			incomeHandler.GetIncomes(w, r)
+			middleware.WithAuth(incomeHandler.GetIncomes)(w, r)
 		} else {
 			http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
 		}
 	})
 
-	http.HandleFunc("/summary", summaryHandler.GetSummary)
-	http.HandleFunc("/expenses/delete", expenseHandler.DeleteExpense)
-	http.HandleFunc("/incomes/delete", incomeHandler.DeleteIncome)
+	http.HandleFunc("/summary", middleware.WithAuth(summaryHandler.GetSummary))
+	http.HandleFunc("/expenses/delete", middleware.WithAuth(expenseHandler.DeleteExpense))
+	http.HandleFunc("/incomes/delete", middleware.WithAuth(incomeHandler.DeleteIncome))
 
 }
