@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSummary } from "./SummaryContext";
 import { HiTrash, HiCalendar, HiPencil } from "react-icons/hi";
 import { MdAttachMoney } from "react-icons/md";
+import { MdAccountBalanceWallet } from "react-icons/md";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import "./styles/datepicker.css";
@@ -155,7 +156,7 @@ export default function Incomes() {
 
       <div className="grid md:grid-cols-3 gap-6">
         {/* Form */}
-        <div className="md:col-span-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-6 sticky top-24">
+        <div className="md:col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-6 sticky top-24">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <MdAttachMoney className="text-emerald-400" /> 
             {editingId ? "Editar Renda" : "Nova Renda"}
@@ -243,11 +244,12 @@ export default function Incomes() {
           {Array.isArray(incomes) && incomes.length > 0 ? (
             <div className="grid gap-3">
               {incomes.map((inc) => (
-                <div key={inc.id} className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-4 hover:border-teal-400/50 transition duration-200">
+                <div key={inc.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm hover:shadow-md transition duration-200">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <h3 className="text-lg font-bold text-white">{inc.description}</h3>
-                      <p className="text-sm text-gray-400 mt-1">
+                      <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-gray-400">
+                        {/* Data */}
                         {inc.date
                           ? new Date(inc.date).toLocaleDateString("pt-BR", { 
                               weekday: "short", 
@@ -256,12 +258,22 @@ export default function Incomes() {
                               day: "numeric" 
                             })
                           : "Data não informada"}
-                      </p>
+                        {/* Conta utilizada */}
+                        {inc.account_id && (() => {
+                          const acc = accounts.find(a => a.id === parseInt(inc.account_id));
+                          return acc ? (
+                            <span className="flex items-center gap-1 pl-2 border-l border-slate-800 text-emerald-300 font-medium">
+                              <MdAccountBalanceWallet className="text-emerald-400 text-base" />
+                              {acc.name}
+                            </span>
+                          ) : null;
+                        })()}
+                      </div>
                     </div>
                     <div className="flex gap-2 ml-2">
                       <button
                         onClick={() => startEdit(inc)}
-                        className="text-emerald-400 hover:text-emerald-300 transition duration-200 flex items-center gap-1"
+                        className="text-slate-400 hover:text-slate-300 transition duration-200 flex items-center gap-1"
                         title="Editar"
                       >
                         <HiPencil className="text-lg" />
@@ -276,7 +288,7 @@ export default function Incomes() {
                     </div>
                   </div>
                   <div className="mt-3 pt-3 border-t border-slate-700">
-                    <p className="text-2xl font-bold text-emerald-400">{formatCurrencyBR(inc.amount)}</p>
+                    <p className="text-2xl font-bold text-slate-300">{formatCurrencyBR(inc.amount)}</p>
                   </div>
                 </div>
               ))}
