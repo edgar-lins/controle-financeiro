@@ -192,7 +192,7 @@ export default function Goals() {
 
       <div className="grid md:grid-cols-3 gap-6">
         {/* Form - Criar Meta */}
-        <div className="md:col-span-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-6 sticky top-24">
+        <div className="md:col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-6 sticky top-24">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <MdAttachMoney className="text-purple-400" /> 
             {editingId ? "Editar Meta" : "Nova Meta"}
@@ -277,7 +277,7 @@ export default function Goals() {
                   : null;
 
                 return (
-                  <div key={goal.id} className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-6 hover:border-purple-400/50 transition duration-200">
+                  <div key={goal.id} className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-sm hover:shadow-md transition duration-200">
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <h3 className="text-xl font-bold text-white">{goal.name}</h3>
@@ -302,7 +302,7 @@ export default function Goals() {
                         </button>
                         <button
                           onClick={() => startEdit(goal)}
-                          className="text-purple-400 hover:text-purple-300 transition duration-200 flex items-center gap-1"
+                          className="text-slate-400 hover:text-slate-300 transition duration-200 flex items-center gap-1"
                           title="Editar meta"
                         >
                           <HiPencil className="text-lg" />
@@ -321,11 +321,7 @@ export default function Goals() {
                     <div className="mb-4">
                       <div className="flex justify-between items-center mb-2">
                         <span className="text-sm text-gray-300">{formatCurrencyBR(goal.current_amount)} de {formatCurrencyBR(goal.target_amount)}</span>
-                        <span className={`text-lg font-bold ${
-                          progress >= 100 ? "text-emerald-400" : 
-                          progress >= 50 ? "text-yellow-400" : 
-                          "text-cyan-400"
-                        }`}>
+                        <span className="text-lg font-bold text-slate-300">
                           {progress.toFixed(0)}%
                         </span>
                       </div>
@@ -344,7 +340,7 @@ export default function Goals() {
                     {/* Amount Remaining */}
                     <div className="text-right">
                       <p className="text-sm text-gray-400">Faltam</p>
-                      <p className="text-2xl font-bold text-purple-400">
+                      <p className="text-2xl font-bold text-slate-300">
                         {formatCurrencyBR(Math.max(0, goal.target_amount - goal.current_amount))}
                       </p>
                     </div>

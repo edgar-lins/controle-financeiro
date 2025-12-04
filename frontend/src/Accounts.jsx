@@ -124,7 +124,7 @@ export default function Accounts() {
 
       <div className="grid md:grid-cols-3 gap-6">
         {/* Form - Criar/Editar Conta */}
-        <div className="md:col-span-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-6">
+        <div className="md:col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-6">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <MdAttachMoney className="text-cyan-400" /> 
             {editingId ? "Editar Conta" : "Adicionar Conta"}
@@ -186,7 +186,7 @@ export default function Accounts() {
           {accounts.length > 0 ? (
             <div className="grid grid-cols-1 gap-4">
               {accounts.map((acc) => (
-                <div key={acc.id} className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-4 hover:border-cyan-400/50 transition duration-200">
+                <div key={acc.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm hover:shadow-md transition duration-200">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <h3 className="text-lg font-bold text-white">{acc.name}</h3>
@@ -195,7 +195,7 @@ export default function Accounts() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => startEdit(acc)}
-                        className="text-cyan-400 hover:text-cyan-300 transition duration-200 flex items-center gap-1"
+                        className="text-slate-400 hover:text-slate-300 transition duration-200 flex items-center gap-1"
                         title="Editar conta"
                       >
                         <HiPencil className="text-lg" />
@@ -210,7 +210,7 @@ export default function Accounts() {
                     </div>
                   </div>
                   <div className="mt-3 pt-3 border-t border-slate-700">
-                    <p className="text-2xl font-bold text-cyan-400">{formatCurrencyBR(acc.balance)}</p>
+                    <p className="text-2xl font-bold text-slate-300">{formatCurrencyBR(acc.balance)}</p>
                   </div>
                 </div>
               ))}
