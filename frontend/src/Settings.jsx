@@ -91,24 +91,24 @@ export default function Settings() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-3 md:p-6 lg:p-8">
+      <div className="max-w-3xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6 md:mb-8">
           <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-4xl font-bold text-white">Configurações</h1>
+            <h1 className="text-2xl md:text-4xl font-bold text-white">Configurações</h1>
           </div>
-          <p className="text-gray-400">Personalize sua distribuição financeira</p>
+          <p className="text-gray-400 text-sm md:text-base">Personalize sua distribuição financeira</p>
         </div>
 
         {/* Card */}
         <form
           onSubmit={handleSave}
-          className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8 backdrop-blur-sm"
+          className="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 md:p-6 lg:p-8 backdrop-blur-sm"
         >
-          <div className="flex items-center gap-2 mb-2">
-            <HiChartBar className="text-3xl text-cyan-400" />
-            <h2 className="text-2xl font-bold text-white">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <HiChartBar className="text-2xl md:text-3xl text-cyan-400" />
+            <h2 className="text-xl md:text-2xl font-bold text-white">
               Distribuição {preferences.expenses_percent.toFixed(0)} / {preferences.entertainment_percent.toFixed(0)} / {preferences.investment_percent.toFixed(0)}
             </h2>
           </div>
@@ -117,12 +117,12 @@ export default function Settings() {
           </p>
 
           {/* Despesas Fixas */}
-          <div className="mb-8">
-            <label className="flex items-center gap-2 text-white font-semibold mb-3">
-              <HiHome className="text-2xl text-cyan-400" />
-              Despesas Fixas (Moradia, Alimentação, Transporte)
+          <div className="mb-6 md:mb-8">
+            <label className="flex items-center gap-2 text-white font-semibold mb-3 text-sm md:text-base flex-wrap">
+              <HiHome className="text-xl md:text-2xl text-cyan-400 flex-shrink-0" />
+              <span>Despesas Fixas (Moradia, Alimentação, Transporte)</span>
             </label>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-4">
               <input
                 type="number"
                 min="0"
@@ -135,9 +135,9 @@ export default function Settings() {
                     expenses_percent: parseFloat(e.target.value) || 0,
                   })
                 }
-                className="flex-1 bg-slate-700 border border-slate-600 text-white rounded-lg p-3 focus:border-cyan-400 focus:outline-none"
+                className="flex-1 bg-slate-700 border border-slate-600 text-white rounded-lg p-2 md:p-3 focus:border-cyan-400 focus:outline-none text-sm md:text-base"
               />
-              <span className="text-cyan-400 font-bold text-xl w-16 text-right">
+              <span className="text-cyan-400 font-bold text-lg md:text-xl md:w-16 text-right">
                 {preferences.expenses_percent.toFixed(2)}%
               </span>
             </div>
@@ -150,12 +150,12 @@ export default function Settings() {
           </div>
 
           {/* Lazer e Diversão */}
-          <div className="mb-8">
-            <label className="flex items-center gap-2 text-white font-semibold mb-3">
-              <HiSparkles className="text-2xl text-emerald-400" />
-              Lazer & Diversão (Entretenimento, Hobbies, Viagens)
+          <div className="mb-6 md:mb-8">
+            <label className="flex items-center gap-2 text-white font-semibold mb-3 text-sm md:text-base flex-wrap">
+              <HiSparkles className="text-xl md:text-2xl text-emerald-400 flex-shrink-0" />
+              <span>Lazer & Diversão (Entretenimento, Hobbies, Viagens)</span>
             </label>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-4">
               <input
                 type="number"
                 min="0"
@@ -168,9 +168,9 @@ export default function Settings() {
                     entertainment_percent: parseFloat(e.target.value) || 0,
                   })
                 }
-                className="flex-1 bg-slate-700 border border-slate-600 text-white rounded-lg p-3 focus:border-cyan-400 focus:outline-none"
+                className="flex-1 bg-slate-700 border border-slate-600 text-white rounded-lg p-2 md:p-3 focus:border-cyan-400 focus:outline-none text-sm md:text-base"
               />
-              <span className="text-emerald-400 font-bold text-xl w-16 text-right">
+              <span className="text-emerald-400 font-bold text-lg md:text-xl md:w-16 text-right">
                 {preferences.entertainment_percent.toFixed(2)}%
               </span>
             </div>
@@ -183,12 +183,12 @@ export default function Settings() {
           </div>
 
           {/* Investimentos */}
-          <div className="mb-8">
-            <label className="flex items-center gap-2 text-white font-semibold mb-3">
-              <HiTrendingUp className="text-2xl text-purple-400" />
-              Investimentos (Poupança, Aplicações, Aposentadoria)
+          <div className="mb-6 md:mb-8">
+            <label className="flex items-center gap-2 text-white font-semibold mb-3 text-sm md:text-base flex-wrap">
+              <HiTrendingUp className="text-xl md:text-2xl text-purple-400 flex-shrink-0" />
+              <span>Investimentos (Poupança, Aplicações, Aposentadoria)</span>
             </label>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-4">
               <input
                 type="number"
                 min="0"
@@ -201,9 +201,9 @@ export default function Settings() {
                     investment_percent: parseFloat(e.target.value) || 0,
                   })
                 }
-                className="flex-1 bg-slate-700 border border-slate-600 text-white rounded-lg p-3 focus:border-cyan-400 focus:outline-none"
+                className="flex-1 bg-slate-700 border border-slate-600 text-white rounded-lg p-2 md:p-3 focus:border-cyan-400 focus:outline-none text-sm md:text-base"
               />
-              <span className="text-violet-400 font-bold text-xl w-16 text-right">
+              <span className="text-violet-400 font-bold text-lg md:text-xl md:w-16 text-right">
                 {preferences.investment_percent.toFixed(2)}%
               </span>
             </div>
@@ -233,18 +233,18 @@ export default function Settings() {
           </div>
 
           {/* Buttons */}
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <button
               type="submit"
               disabled={!isValid}
-              className="flex-1 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition duration-200"
+              className="flex-1 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2 md:py-3 rounded-lg transition duration-200 text-sm md:text-base"
             >
               Salvar Configurações
             </button>
             <button
               type="button"
               onClick={handleReset}
-              className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-lg transition duration-200"
+              className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2 md:py-3 rounded-lg transition duration-200 text-sm md:text-base"
             >
               Padrão (50/30/20)
             </button>
@@ -252,8 +252,8 @@ export default function Settings() {
         </form>
 
         {/* Info */}
-        <div className="mt-8 p-4 bg-blue-600/20 border border-blue-600/30 rounded-lg">
-          <p className="text-blue-300 text-sm">
+        <div className="mt-6 md:mt-8 p-3 md:p-4 bg-blue-600/20 border border-blue-600/30 rounded-lg">
+          <p className="text-blue-300 text-xs md:text-sm">
             💡 <strong>Dica:</strong> Você pode personalizar as porcentagens conforme sua realidade financeira.
             Por exemplo: 60/25/15 para quem tem despesas altas, ou 40/30/30 para quem quer investir mais.
           </p>
