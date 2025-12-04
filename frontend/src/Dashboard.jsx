@@ -105,7 +105,7 @@ export default function Dashboard({ userName, getGreeting }) {
       />
 
       {/* Filtros */}
-      <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
         <div className="flex flex-wrap gap-4 items-end">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Mês</label>
@@ -184,7 +184,7 @@ export default function Dashboard({ userName, getGreeting }) {
       </div>
 
       {/* Distribuição 50/30/20 */}
-      <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-6">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
         <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
           <HiChartBar className="text-cyan-400" />
           Distribuição {preferences.expenses_percent.toFixed(0)} / {preferences.entertainment_percent.toFixed(0)} / {preferences.investment_percent.toFixed(0)}
@@ -230,7 +230,7 @@ export default function Dashboard({ userName, getGreeting }) {
 
       {/* Evolução Mensal */}
       {monthlyHistory.length > 0 && (
-        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-6">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
           <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
             <HiTrendingUp className="text-cyan-400" />
             Evolução dos Últimos 12 Meses
