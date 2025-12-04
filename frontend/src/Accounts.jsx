@@ -1,0 +1,244 @@
+import { useEffect, useState } from "react";
+import { HiTrash, HiPencil } from "react-icons/hi";
+import { MdAttachMoney } from "react-icons/md";
+import { formatCurrencyBR } from "./utils/format";
+import { AccountTypeSelect } from "./components/AccountTypeSelect";
+import { CurrencyInput } from "./components/CurrencyInput";
+import { ConfirmModal } from "./components/ConfirmModal";
+import { Toast } from "./components/Toast";
+
+export default function Accounts() {
+  const [accounts, setAccounts] = useState([]);
+  const [form, setForm] = useState({ name: "", type: "corrente", balance: "" });
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+  const [editingId, setEditingId] = useState(null);
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, accountId: null, accountName: "" });
+
+  const accountTypes = {
+    corrente: "Conta Corrente",
+    poupanca: "Poupança",
+    cartao: "Cartão de Crédito",
+    investimento: "Investimentos"
+  };
+
+  async function fetchAccounts() {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:8080/accounts", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setAccounts(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Erro:", error);
+      setAccounts([]);
+    }
+  }
+
+  function startEdit(account) {
+    setEditingId(account.id);
+    setForm({
+      name: account.name,
+      type: account.type,
+      balance: account.balance.toString(),
+    });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setForm({ name: "", type: "corrente", balance: "" });
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+
+    try {
+      const token = localStorage.getItem("token");
+      const url = editingId 
+        ? `http://localhost:8080/accounts/update?id=${editingId}`
+        : "http://localhost:8080/accounts";
+      
+      const res = await fetch(url, {
+        method: editingId ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ...form,
+          balance: parseFloat(form.balance) || 0,
+        }),
+      });
+
+      if (res.ok) {
+        setToast({ show: true, message: editingId ? "Conta atualizada!" : "Conta adicionada!", type: "success" });
+        setForm({ name: "", type: "corrente", balance: "" });
+        setEditingId(null);
+        fetchAccounts();
+      } else {
+        setToast({ show: true, message: editingId ? "Erro ao atualizar conta" : "Erro ao adicionar conta", type: "error" });
+      }
+    } catch (error) {
+      console.error("Erro:", error);
+      setToast({ show: true, message: "Erro de conexão", type: "error" });
+    }
+  }
+
+  async function deleteAccount(id) {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:8080/accounts/delete?id=${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        setToast({ show: true, message: "Conta removida!", type: "success" });
+        fetchAccounts();
+      } else {
+        setToast({ show: true, message: "Erro ao remover conta", type: "error" });
+      }
+    } catch (error) {
+      console.error("Erro:", error);
+      setToast({ show: true, message: "Erro de conexão", type: "error" });
+    }
+    setDeleteModal({ isOpen: false, accountId: null, accountName: "" });
+  }
+
+  useEffect(() => {
+    fetchAccounts();
+  }, []);
+
+  const totalBalance = accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-cyan-600 to-blue-600 rounded-lg p-8 text-white shadow-lg">
+        <h1 className="text-4xl font-bold mb-2">Minhas Contas</h1>
+        <p className="text-blue-100">Gerencie suas contas bancárias e cartões</p>
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-6">
+        {/* Form - Criar/Editar Conta */}
+        <div className="md:col-span-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-6">
+          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+            <MdAttachMoney className="text-cyan-400" /> 
+            {editingId ? "Editar Conta" : "Adicionar Conta"}
+          </h2>
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Nome da conta</label>
+              <input
+                type="text"
+                placeholder="Ex: Conta Corrente"
+                className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg p-2 focus:border-cyan-400 focus:outline-none"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Tipo de conta</label>
+              <AccountTypeSelect 
+                value={form.type}
+                onChange={(type) => setForm({ ...form, type })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Saldo inicial</label>
+              <CurrencyInput
+                className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg p-2 focus:border-cyan-400 focus:outline-none"
+                value={form.balance}
+                onChange={(val) => setForm({ ...form, balance: val })}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                className="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 rounded-lg transition duration-200"
+              >
+                {editingId ? "Salvar" : "+ Adicionar Conta"}
+              </button>
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  className="px-4 bg-slate-600 hover:bg-slate-700 text-white font-semibold py-2 rounded-lg transition duration-200"
+                >
+                  Cancelar
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+
+        {/* Lista de Contas */}
+        <div className="md:col-span-2">
+          <div className="mb-6 bg-gradient-to-r from-emerald-600 to-cyan-600 rounded-lg p-6 text-white">
+            <p className="text-emerald-100 text-sm font-medium">Saldo Total</p>
+            <p className="text-4xl font-bold mt-2">{formatCurrencyBR(totalBalance)}</p>
+          </div>
+
+          {accounts.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4">
+              {accounts.map((acc) => (
+                <div key={acc.id} className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-4 hover:border-cyan-400/50 transition duration-200">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-white">{acc.name}</h3>
+                      <p className="text-sm text-gray-400">{accountTypes[acc.type]}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => startEdit(acc)}
+                        className="text-cyan-400 hover:text-cyan-300 transition duration-200 flex items-center gap-1"
+                        title="Editar conta"
+                      >
+                        <HiPencil className="text-lg" />
+                      </button>
+                      <button
+                        onClick={() => setDeleteModal({ isOpen: true, accountId: acc.id, accountName: acc.name })}
+                        className="text-red-400 hover:text-red-300 transition duration-200 flex items-center gap-1"
+                        title="Excluir conta"
+                      >
+                        <HiTrash className="text-lg" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-slate-700">
+                    <p className="text-2xl font-bold text-cyan-400">{formatCurrencyBR(acc.balance)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white/5 border-2 border-dashed border-white/20 rounded-lg p-12 text-center">
+              <p className="text-gray-400 text-lg">Nenhuma conta cadastrada</p>
+              <p className="text-gray-500 text-sm mt-2">Crie sua primeira conta no formulário ao lado</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <ConfirmModal
+        isOpen={deleteModal.isOpen}
+        title="Excluir Conta"
+        message={`Tem certeza que deseja excluir a conta "${deleteModal.accountName}"? Esta ação não pode ser desfeita.`}
+        onConfirm={() => deleteAccount(deleteModal.accountId)}
+        onCancel={() => setDeleteModal({ isOpen: false, accountId: null, accountName: "" })}
+        confirmText="Excluir"
+        cancelText="Cancelar"
+        isDangerous={true}
+      />
+
+      {toast.show && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ show: false, message: "", type: "success" })}
+        />
+      )}
+    </div>
+  );
+}
