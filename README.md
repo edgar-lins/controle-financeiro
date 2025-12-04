@@ -32,6 +32,10 @@ psql -U postgres -d controle_financeiro -f migrations/002_create_incomes_table.s
 psql -U postgres -d controle_financeiro -f migrations/003_create_users_table.sql
 psql -U postgres -d controle_financeiro -f migrations/004_add_user_id_to_expenses.sql
 psql -U postgres -d controle_financeiro -f migrations/005_add_user_id_to_incomes.sql
+psql -U postgres -d controle_financeiro -f migrations/006_create_accounts_table.sql
+psql -U postgres -d controle_financeiro -f migrations/007_create_goals_table.sql
+psql -U postgres -d controle_financeiro -f migrations/008_add_account_id_to_transactions.sql
+psql -U postgres -d controle_financeiro -f migrations/009_add_user_name.sql
 ```
 
 Ou use um script:
@@ -67,44 +71,70 @@ Frontend roda em `http://localhost:5173`.
 ## Funcionalidades
 
 ### ✅ MVP Atual
-- Autenticação (signup/login com JWT)
-- Multi-usuário (dados isolados por user_id)
-- Dashboard com regra 50/30/20
-- Cadastro de gastos e rendas
-- Filtros de mês/ano
-- Exportação CSV
+- **Autenticação**: signup/login com JWT, suporte a nome completo do usuário
+- **Multi-usuário**: dados isolados por user_id
+- **Dashboard**: regra 50/30/20 com gráfico de pizza interativo
+- **Gestão de Contas**: múltiplas contas bancárias (corrente, poupança, cartão, investimentos)
+- **Gastos e Rendas**: cadastro com vínculo a contas específicas, atualização automática de saldos
+- **Metas Financeiras**: criação de objetivos com acompanhamento de progresso e prazo
+- **Adicionar dinheiro a metas**: vincular contribuições a contas específicas
+- **Edição completa**: editar todas as entidades (contas, gastos, rendas, metas)
+- **Filtros**: mês/ano no dashboard
+- **Notificações**: sistema de toast com auto-dismiss e animações
+- **Exportação CSV**: exportar dados financeiros
 
-### 🔜 Roadmap (Monetização)
+### 🔜 Roadmap
 - [ ] Autenticação social (Google, GitHub)
 - [ ] Exportação PDF de relatórios
-- [ ] Análise de gastos por categoria (gráficos)
-- [ ] Metas e objetivos financeiros
-- [ ] Itens recorrentes (mensalidades)
+- [ ] Análise avançada de gastos por categoria
+- [ ] Itens recorrentes (mensalidades automáticas)
 - [ ] Contas compartilhadas
-- [ ] Notificações (email/push)
+- [ ] Notificações por email/push
 - [ ] API pública para integrações
+- [ ] App mobile (React Native)
 
 ## Endpoints
 
 ### Auth (público)
 - `POST /auth/signup` - criar conta
   ```json
-  {"email": "user@example.com", "password": "senha"}
+  {"email": "user@example.com", "password": "senha", "first_name": "João", "last_name": "Silva"}
   ```
 - `POST /auth/login` - login
   ```json
   {"email": "user@example.com", "password": "senha"}
   ```
-  Retorna: `{"token": "jwt..."}`
+  Retorna: `{"token": "jwt...", "first_name": "João", "last_name": "Silva"}`
 
 ### Protegidos (requer `Authorization: Bearer <token>`)
-- `GET /summary?month=11&year=2025` - resumo financeiro
+
+#### Summary
+- `GET /summary?month=11&year=2025` - resumo financeiro com regra 50/30/20
+
+#### Expenses (Gastos)
 - `GET /expenses` - listar gastos
-- `POST /expenses` - criar gasto
+- `POST /expenses` - criar gasto (com account_id opcional)
+- `PUT /expenses/update?id=1` - atualizar gasto
 - `DELETE /expenses/delete?id=1` - deletar gasto
+
+#### Incomes (Rendas)
 - `GET /incomes` - listar rendas
-- `POST /incomes` - criar renda
+- `POST /incomes` - criar renda (com account_id opcional)
+- `PUT /incomes/update?id=1` - atualizar renda
 - `DELETE /incomes/delete?id=1` - deletar renda
+
+#### Accounts (Contas)
+- `GET /accounts` - listar contas
+- `POST /accounts` - criar conta
+- `PUT /accounts/update?id=1` - atualizar conta
+- `DELETE /accounts/delete?id=1` - deletar conta
+
+#### Goals (Metas)
+- `GET /goals` - listar metas
+- `POST /goals` - criar meta
+- `PUT /goals/update?id=1` - atualizar meta
+- `PUT /goals/add-money?id=1` - adicionar dinheiro a meta (vincula a conta)
+- `DELETE /goals/delete?id=1` - deletar meta
 
 ## Estrutura
 ```
@@ -116,12 +146,25 @@ Frontend roda em `http://localhost:5173`.
 │   │   ├── auth_handler.go
 │   │   ├── expense_handler.go
 │   │   ├── income.handler.go
+│   │   ├── account_handler.go
+│   │   ├── goal_handler.go
 │   │   └── summary_handler.go
 │   ├── middleware/          # JWT auth middleware
-│   ├── models/              # Structs
+│   ├── models/              # Structs (User, Expense, Income, Account, Goal)
 │   └── routes/              # Rotas
-├── migrations/              # SQL migrations
+├── migrations/              # SQL migrations (001-009)
 ├── frontend/                # React app
+│   ├── src/
+│   │   ├── components/      # Toast, AccountTypeSelect, CurrencyInput
+│   │   ├── styles/          # DashboardCharts
+│   │   ├── utils/           # format.js (formatCurrencyBR)
+│   │   ├── Dashboard.jsx
+│   │   ├── Accounts.jsx
+│   │   ├── Expenses.jsx
+│   │   ├── Incomes.jsx
+│   │   ├── Goals.jsx
+│   │   └── Login.jsx
+│   └── tailwind.config.js
 └── docker-compose.yml
 ```
 
