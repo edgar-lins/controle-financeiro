@@ -9,6 +9,7 @@ import { formatCurrencyBR } from "./utils/format";
 import { CurrencyInput } from "./components/CurrencyInput";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { Toast } from "./components/Toast";
+import { PageHeader } from "./components/PageHeader";
 
 export default function Incomes() {
   const [form, setForm] = useState({
@@ -145,10 +146,12 @@ export default function Incomes() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-lg p-8 text-white shadow-lg">
-        <h1 className="text-4xl font-bold mb-2">Minhas Rendas</h1>
-        <p className="text-emerald-100">Registre todas as suas fontes de renda</p>
-      </div>
+      <PageHeader 
+        title="Minhas Rendas" 
+        subtitle="Acompanhe suas fontes de renda"
+        description="Registre todas as suas fontes de renda incluindo salário, freelances, investimentos e outras rendas. Acompanhe o histórico de recebimentos e visualize a tendência de seus ganhos ao longo do tempo. As rendas são utilizadas para calcular o resumo financeiro."
+        colorClass="from-emerald-600 to-teal-600"
+      />
 
       <div className="grid md:grid-cols-3 gap-6">
         {/* Form */}

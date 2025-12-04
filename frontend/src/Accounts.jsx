@@ -6,6 +6,7 @@ import { AccountTypeSelect } from "./components/AccountTypeSelect";
 import { CurrencyInput } from "./components/CurrencyInput";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { Toast } from "./components/Toast";
+import { PageHeader } from "./components/PageHeader";
 
 export default function Accounts() {
   const [accounts, setAccounts] = useState([]);
@@ -114,10 +115,12 @@ export default function Accounts() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-cyan-600 to-blue-600 rounded-lg p-8 text-white shadow-lg">
-        <h1 className="text-4xl font-bold mb-2">Minhas Contas</h1>
-        <p className="text-blue-100">Gerencie suas contas bancárias e cartões</p>
-      </div>
+      <PageHeader 
+        title="Minhas Contas" 
+        subtitle="Gerencie suas contas"
+        description="Gerencie todas as suas contas bancárias, poupanças, contas de investimento e cartões de crédito. Visualize o saldo total e rastreie movimentações em cada conta. Os saldos das contas são utilizados para calcular o resumo financeiro."
+        colorClass="from-cyan-600 to-blue-600"
+      />
 
       <div className="grid md:grid-cols-3 gap-6">
         {/* Form - Criar/Editar Conta */}

@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, NavLink } from "react-router-dom";
-import { HiChartBar, HiCreditCard, HiCash, HiTrendingDown, HiLogout, HiCurrencyDollar } from "react-icons/hi";
+import { HiChartBar, HiCreditCard, HiCash, HiTrendingDown, HiLogout, HiCurrencyDollar, HiCog } from "react-icons/hi";
 import { FaBullseye } from "react-icons/fa";
 import Dashboard from "./Dashboard";
 import Expenses from "./Expenses";
 import Incomes from "./Incomes";
 import Accounts from "./Accounts";
 import Goals from "./Goals";
+import Settings from "./Settings";
 import Login from "./Login";
 import { SummaryProvider } from "./SummaryContext";
 
@@ -57,14 +58,14 @@ export default function App() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between items-center h-16">
                 {/* Logo */}
-                <div className="flex items-center gap-4">
+                <NavLink to="/" className="flex items-center gap-4 hover:opacity-80 transition-opacity">
                   <div className="flex items-center gap-2">
                     <HiCurrencyDollar className="text-cyan-400 text-3xl" />
                     <span className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
                       FinControl
                     </span>
                   </div>
-                </div>
+                </NavLink>
 
                 {/* Menu */}
                 <div className="flex gap-8 items-center">
@@ -98,6 +99,12 @@ export default function App() {
                     <FaBullseye className="text-lg" />
                     <span>Metas</span>
                   </NavLink>
+                  <NavLink className={({ isActive }) => `flex items-center gap-2 font-medium transition duration-200 pb-1 border-b-2 ${
+                    isActive ? "text-cyan-400 border-cyan-400" : "text-gray-300 border-transparent hover:text-white hover:border-gray-600"
+                  }`} to="/settings">
+                    <HiCog className="text-lg" />
+                    <span>Configurações</span>
+                  </NavLink>
 
                   <button
                     onClick={handleLogout}
@@ -119,6 +126,7 @@ export default function App() {
               <Route path="/incomes" element={<Incomes />} />
               <Route path="/accounts" element={<Accounts />} />
               <Route path="/goals" element={<Goals />} />
+              <Route path="/settings" element={<Settings />} />
             </Routes>
           </main>
         </div>

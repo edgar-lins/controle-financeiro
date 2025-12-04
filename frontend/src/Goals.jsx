@@ -7,6 +7,7 @@ import { formatCurrencyBR } from "./utils/format";
 import { CurrencyInput } from "./components/CurrencyInput";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { Toast } from "./components/Toast";
+import { PageHeader } from "./components/PageHeader";
 import "./styles/datepicker.css";
 
 export default function Goals() {
@@ -182,10 +183,12 @@ export default function Goals() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg p-8 text-white shadow-lg">
-        <h1 className="text-4xl font-bold mb-2">Metas Financeiras</h1>
-        <p className="text-purple-100">Defina e acompanhe seus objetivos financeiros</p>
-      </div>
+      <PageHeader 
+        title="Metas Financeiras" 
+        subtitle="Acompanhe seus objetivos"
+        description="Defina e acompanhe suas metas financeiras. Estabeleça objetivos de curto e longo prazo, como economizar para férias, comprar uma casa ou aumentar sua reserva de emergência. Acompanhe o progresso em tempo real e veja quanto falta para atingir cada meta."
+        colorClass="from-purple-600 to-pink-600"
+      />
 
       <div className="grid md:grid-cols-3 gap-6">
         {/* Form - Criar Meta */}

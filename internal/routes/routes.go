@@ -74,4 +74,15 @@ func SetupRoutes(db *sql.DB) {
 	http.HandleFunc("/goals/update", middleware.WithAuth(goalHandler.UpdateGoal))
 	http.HandleFunc("/goals/add-money", middleware.WithAuth(goalHandler.AddMoneyToGoal))
 
+	// User Preferences
+	http.HandleFunc("/preferences", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			middleware.WithAuth(handlers.GetUserPreferences(db))(w, r)
+		} else if r.Method == http.MethodPut {
+			middleware.WithAuth(handlers.UpdateUserPreferences(db))(w, r)
+		} else {
+			http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
+		}
+	})
+
 }

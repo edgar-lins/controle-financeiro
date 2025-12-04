@@ -8,6 +8,7 @@ import "./styles/datepicker.css";
 import { formatCurrencyBR } from "./utils/format";
 import { CategorySelect } from "./components/CategorySelect";
 import { CurrencyInput } from "./components/CurrencyInput";
+import { PageHeader } from "./components/PageHeader";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { Toast } from "./components/Toast";
 
@@ -146,10 +147,12 @@ export default function Expenses() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-violet-600 to-purple-600 rounded-lg p-8 text-white shadow-lg">
-        <h1 className="text-4xl font-bold mb-2">Meus Gastos</h1>
-        <p className="text-violet-100">Registre e acompanhe suas despesas</p>
-      </div>
+      <PageHeader 
+        title="Meus Gastos" 
+        subtitle="Visualize e gerencie despesas"
+        description="Registre todos os seus gastos e despesas. Acompanhe o histórico de movimentações, categorize suas despesas e analise padrões de consumo. Os gastos são automaticamente classificados de acordo com sua distribuição de renda (Despesas Fixas, Lazer e Investimentos)."
+        colorClass="from-violet-600 to-purple-600"
+      />
 
       <div className="grid md:grid-cols-3 gap-6">
         {/* Form */}

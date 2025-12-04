@@ -3,6 +3,8 @@ import { useSummary } from "./SummaryContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { HiChartBar, HiHome, HiSparkles, HiTrendingUp, HiCheckCircle, HiExclamation, HiChevronDown } from "react-icons/hi";
 import { formatCurrencyBR } from "./utils/format";
+import { ExportData } from "./components/ExportData";
+import { PageHeader } from "./components/PageHeader";
 
 export default function Dashboard({ userName, getGreeting }) {
   const [summary, setSummary] = useState(null);
@@ -10,9 +12,27 @@ export default function Dashboard({ userName, getGreeting }) {
   const [loading, setLoading] = useState(true);
   const [month, setMonth] = useState("");
   const [year, setYear] = useState("");
+  const [preferences, setPreferences] = useState({
+    expenses_percent: 50,
+    entertainment_percent: 30,
+    investment_percent: 20,
+  });
   const { refreshKey } = useSummary();
 
   useEffect(() => {
+    async function fetchPreferences() {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch("http://localhost:8080/preferences", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        setPreferences(data);
+      } catch (error) {
+        console.error("Erro ao buscar preferências:", error);
+      }
+    }
+
     async function fetchSummary() {
       try {
         setLoading(true);
@@ -46,6 +66,7 @@ export default function Dashboard({ userName, getGreeting }) {
       }
     }
 
+    fetchPreferences();
     fetchSummary();
     fetchMonthlyHistory();
   }, [refreshKey, month, year]);
@@ -69,21 +90,19 @@ export default function Dashboard({ userName, getGreeting }) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg p-8 text-white shadow-lg">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-4xl font-bold mb-2">Resumo Financeiro</h1>
-            <p className="text-blue-100 text-lg">{summary.mes}/{summary.ano}</p>
-          </div>
-          {userName && getGreeting && (
-            <div className="bg-black/15 backdrop-blur-md rounded-2xl px-5 py-3 shadow-inner">
-              <p className="text-lg font-semibold text-blue-100">
-                {getGreeting()}, <span className="font-bold bg-gradient-to-r from-cyan-300 via-teal-300 to-emerald-400 bg-clip-text text-transparent animate-gradient bg-[length:200%_auto]">{userName}</span>!
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
+      <PageHeader 
+        title="Resumo Financeiro" 
+        subtitle={`${summary.mes}/${summary.ano}`}
+        description="Visualize um resumo completo de suas finanças, incluindo receitas, despesas, saldo e distribuição de renda de acordo com suas preferências pessoais. Customize as porcentagens nas Configurações."
+        colorClass="from-blue-600 to-cyan-600"
+        greeting={
+          userName && getGreeting ? (
+            <p className="text-lg font-semibold text-blue-100">
+              {getGreeting()}, <span className="font-bold bg-gradient-to-r from-cyan-300 via-teal-300 to-emerald-400 bg-clip-text text-transparent animate-gradient bg-[length:200%_auto]">{userName}</span>!
+            </p>
+          ) : null
+        }
+      />
 
       {/* Filtros */}
       <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-4">
@@ -168,24 +187,24 @@ export default function Dashboard({ userName, getGreeting }) {
       <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-6">
         <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
           <HiChartBar className="text-cyan-400" />
-          Distribuição 50 / 30 / 20
+          Distribuição {preferences.expenses_percent.toFixed(0)} / {preferences.entertainment_percent.toFixed(0)} / {preferences.investment_percent.toFixed(0)}
         </h2>
         <div className="space-y-4">
           <Category
             icon={<HiHome className="text-blue-400" />}
-            name="Despesas Fixas (50%)"
+            name={`Despesas Fixas (${preferences.expenses_percent.toFixed(0)}%)`}
             ideal={summary.ideal_fixos}
             real={summary.real_fixos}
           />
           <Category
             icon={<HiSparkles className="text-purple-400" />}
-            name="Lazer & Diversão (30%)"
+            name={`Lazer & Diversão (${preferences.entertainment_percent.toFixed(0)}%)`}
             ideal={summary.ideal_lazer}
             real={summary.real_lazer}
           />
           <Category
             icon={<HiTrendingUp className="text-emerald-400" />}
-            name="Investimentos (20%)"
+            name={`Investimentos (${preferences.investment_percent.toFixed(0)}%)`}
             ideal={summary.ideal_invest}
             real={summary.real_invest}
           />
@@ -247,9 +266,8 @@ export default function Dashboard({ userName, getGreeting }) {
       )}
 
       {/* Botões de Exportação */}
-      <div className="flex flex-wrap gap-3 justify-center">
-        <ExportCSV endpoint="http://localhost:8080/expenses" filename="gastos.csv" label="Exportar Gastos" />
-        <ExportCSV endpoint="http://localhost:8080/incomes" filename="rendas.csv" label="Exportar Rendas" />
+      <div className="flex justify-center">
+        <ExportData />
       </div>
     </div>
   );
@@ -285,52 +303,5 @@ function Category({ icon, name, ideal, real }) {
         <span>Limite: {formatCurrencyBR(ideal)}</span>
       </div>
     </div>
-  );
-}
-
-// Utilitário simples para exportar CSV
-function ExportCSV({ endpoint, filename, label }) {
-  const [downloading, setDownloading] = useState(false);
-
-  async function handleDownload() {
-    try {
-      setDownloading(true);
-      const token = localStorage.getItem("token");
-      const res = await fetch(endpoint, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      const rows = Array.isArray(data) ? data : [];
-      if (!rows.length) {
-        alert("Sem dados para exportar.");
-        return;
-      }
-      const headers = Object.keys(rows[0]);
-      const csv = [headers.join(","), ...rows.map(r => headers.map(h => JSON.stringify(r[h] ?? "")).join(","))].join("\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      console.error("Erro ao exportar:", e);
-      alert("Erro ao exportar CSV.");
-    } finally {
-      setDownloading(false);
-    }
-  }
-
-  return (
-    <button
-      onClick={handleDownload}
-      className="bg-cyan-600 hover:bg-cyan-700 text-white px-6 py-2 rounded-lg font-medium transition duration-200 disabled:opacity-60"
-      disabled={downloading}
-    >
-      {downloading ? "Exportando..." : label}
-    </button>
   );
 }
