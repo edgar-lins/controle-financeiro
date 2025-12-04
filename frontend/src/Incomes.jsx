@@ -15,7 +15,10 @@ export default function Incomes() {
   // 🔹 Buscar rendas
   async function fetchIncomes() {
     try {
-      const res = await fetch("http://localhost:8080/incomes");
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:8080/incomes", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!res.ok) throw new Error("Erro ao buscar rendas");
       const data = await res.json();
       setIncomes(Array.isArray(data) ? data : []);
@@ -31,9 +34,13 @@ export default function Incomes() {
     setMessage("");
 
     try {
+      const token = localStorage.getItem("token");
       const res = await fetch("http://localhost:8080/incomes", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           ...form,
           amount: parseFloat(form.amount),
@@ -60,8 +67,10 @@ export default function Incomes() {
     if (!confirm("Tem certeza que deseja excluir esta renda?")) return;
 
     try {
+      const token = localStorage.getItem("token");
       const res = await fetch(`http://localhost:8080/incomes/delete?id=${id}`, {
         method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {

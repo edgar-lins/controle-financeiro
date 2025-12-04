@@ -16,7 +16,10 @@ export default function Expenses() {
   // 🔹 Buscar lista de gastos
   async function fetchExpenses() {
     try {
-      const res = await fetch("http://localhost:8080/expenses");
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:8080/expenses", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!res.ok) throw new Error("Erro ao buscar gastos");
       const data = await res.json();
       setExpenses(Array.isArray(data) ? data : []);
@@ -32,9 +35,13 @@ export default function Expenses() {
     setMessage("");
 
     try {
+      const token = localStorage.getItem("token");
       const res = await fetch("http://localhost:8080/expenses", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           ...form,
           amount: parseFloat(form.amount),
@@ -60,8 +67,10 @@ export default function Expenses() {
     if (!confirm("Tem certeza que deseja excluir este gasto?")) return;
 
     try {
+      const token = localStorage.getItem("token");
       const res = await fetch(`http://localhost:8080/expenses/delete?id=${id}`, {
         method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
