@@ -2,7 +2,7 @@ services:
   - type: web
     name: controle-financeiro-api
     env: go
-    buildCommand: go build -o bin/api cmd/api/main.go
+    buildCommand: go mod download && go build -o bin/api cmd/api/main.go
     startCommand: ./bin/api
     envVars:
       - key: PORT
