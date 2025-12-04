@@ -8,14 +8,15 @@ export function ExportData() {
     try {
       setDownloading(true);
       const token = localStorage.getItem("token");
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
       // Buscar todos os dados
       const [expensesRes, incomesRes, accountsRes, goalsRes, summaryRes] = await Promise.all([
-        fetch("http://localhost:8080/expenses", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("http://localhost:8080/incomes", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("http://localhost:8080/accounts", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("http://localhost:8080/goals", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`http://localhost:8080/summary?month=${new Date().getMonth() + 1}&year=${new Date().getFullYear()}`, {
+        fetch(`${apiUrl}/expenses`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${apiUrl}/incomes`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${apiUrl}/accounts`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${apiUrl}/goals`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${apiUrl}/summary?month=${new Date().getMonth() + 1}&year=${new Date().getFullYear()}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);

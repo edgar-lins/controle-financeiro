@@ -23,7 +23,8 @@ export default function Dashboard({ userName, getGreeting }) {
     async function fetchPreferences() {
       try {
         const token = localStorage.getItem("token");
-        const res = await fetch("http://localhost:8080/preferences", {
+        const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+        const res = await fetch(`${apiUrl}/preferences`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
@@ -39,7 +40,8 @@ export default function Dashboard({ userName, getGreeting }) {
         const params = new URLSearchParams();
         if (month) params.set("month", String(month));
         if (year) params.set("year", String(year));
-        const url = `http://localhost:8080/summary${params.toString() ? `?${params.toString()}` : ""}`;
+        const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+        const url = `${apiUrl}/summary${params.toString() ? `?${params.toString()}` : ""}`;
         const token = localStorage.getItem("token");
         const res = await fetch(url, {
           headers: { Authorization: `Bearer ${token}` },
@@ -56,7 +58,8 @@ export default function Dashboard({ userName, getGreeting }) {
     async function fetchMonthlyHistory() {
       try {
         const token = localStorage.getItem("token");
-        const res = await fetch("http://localhost:8080/summary/history", {
+        const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+        const res = await fetch(`${apiUrl}/summary/history`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();

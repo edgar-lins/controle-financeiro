@@ -20,7 +20,8 @@ export default function Settings() {
   async function fetchPreferences() {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:8080/preferences", {
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const res = await fetch(`${apiUrl}/preferences`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -45,7 +46,8 @@ export default function Settings() {
 
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:8080/preferences", {
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const res = await fetch(`${apiUrl}/preferences`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

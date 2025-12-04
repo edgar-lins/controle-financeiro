@@ -25,7 +25,8 @@ export default function Accounts() {
   async function fetchAccounts() {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:8080/accounts", {
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const res = await fetch(`${apiUrl}/accounts`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -55,9 +56,10 @@ export default function Accounts() {
 
     try {
       const token = localStorage.getItem("token");
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
       const url = editingId 
-        ? `http://localhost:8080/accounts/update?id=${editingId}`
-        : "http://localhost:8080/accounts";
+        ? `${apiUrl}/accounts/update?id=${editingId}`
+        : `${apiUrl}/accounts`;
       
       const res = await fetch(url, {
         method: editingId ? "PUT" : "POST",
@@ -88,7 +90,8 @@ export default function Accounts() {
   async function deleteAccount(id) {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:8080/accounts/delete?id=${id}`, {
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const res = await fetch(`${apiUrl}/accounts/delete?id=${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });

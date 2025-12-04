@@ -49,7 +49,8 @@ export default function Expenses() {
   async function fetchAccounts() {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:8080/accounts", {
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const res = await fetch(`${apiUrl}/accounts`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Erro ao buscar contas");
@@ -65,7 +66,8 @@ export default function Expenses() {
   async function fetchExpenses() {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:8080/expenses", {
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const res = await fetch(`${apiUrl}/expenses`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Erro ao buscar gastos");
@@ -83,9 +85,10 @@ export default function Expenses() {
 
     try {
       const token = localStorage.getItem("token");
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
       const url = editingId
-        ? `http://localhost:8080/expenses/update?id=${editingId}`
-        : "http://localhost:8080/expenses";
+        ? `${apiUrl}/expenses/update?id=${editingId}`
+        : `${apiUrl}/expenses`;
       
       const res = await fetch(url, {
         method: editingId ? "PUT" : "POST",
@@ -120,7 +123,8 @@ export default function Expenses() {
   async function deleteExpense(id) {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:8080/expenses/delete?id=${id}`, {
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const res = await fetch(`${apiUrl}/expenses/delete?id=${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });

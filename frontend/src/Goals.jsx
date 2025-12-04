@@ -28,7 +28,8 @@ export default function Goals() {
   async function fetchAccounts() {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:8080/accounts", {
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const res = await fetch(`${apiUrl}/accounts`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -42,7 +43,8 @@ export default function Goals() {
   async function fetchGoals() {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:8080/goals", {
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const res = await fetch(`${apiUrl}/goals`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -91,7 +93,8 @@ export default function Goals() {
       const newCurrentAmount = addMoneyModal.currentAmount + amount;
 
       // Update goal
-      const resGoal = await fetch(`http://localhost:8080/goals/add-money?id=${addMoneyModal.goalId}`, {
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const resGoal = await fetch(`${apiUrl}/goals/add-money?id=${addMoneyModal.goalId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -123,9 +126,10 @@ export default function Goals() {
 
     try {
       const token = localStorage.getItem("token");
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
       const url = editingId
-        ? `http://localhost:8080/goals/update?id=${editingId}`
-        : "http://localhost:8080/goals";
+        ? `${apiUrl}/goals/update?id=${editingId}`
+        : `${apiUrl}/goals`;
       
       const res = await fetch(url, {
         method: editingId ? "PUT" : "POST",
@@ -157,7 +161,8 @@ export default function Goals() {
   async function deleteGoal(id) {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:8080/goals/delete?id=${id}`, {
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const res = await fetch(`${apiUrl}/goals/delete?id=${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
