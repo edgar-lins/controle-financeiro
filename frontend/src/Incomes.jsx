@@ -1,16 +1,61 @@
 import { useEffect, useState } from "react";
 import { useSummary } from "./SummaryContext";
+import { HiTrash, HiCalendar, HiPencil } from "react-icons/hi";
+import { MdAttachMoney } from "react-icons/md";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import "./styles/datepicker.css";
+import { formatCurrencyBR } from "./utils/format";
+import { CurrencyInput } from "./components/CurrencyInput";
+import { ConfirmModal } from "./components/ConfirmModal";
+import { Toast } from "./components/Toast";
 
 export default function Incomes() {
   const [form, setForm] = useState({
     description: "",
     amount: "",
     date: "",
+    account_id: "",
   });
 
   const [incomes, setIncomes] = useState([]);
-  const [message, setMessage] = useState("");
+  const [accounts, setAccounts] = useState([]);
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+  const [editingId, setEditingId] = useState(null);
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, incomeId: null, incomeDesc: "" });
   const { refreshSummary } = useSummary();
+
+  function startEdit(income) {
+    setEditingId(income.id);
+    const dateStr = income.date ? new Date(income.date).toISOString().split('T')[0] : "";
+    setForm({
+      description: income.description,
+      amount: income.amount.toString(),
+      date: dateStr,
+      account_id: income.account_id ? income.account_id.toString() : "",
+    });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setForm({ description: "", amount: "", date: "", account_id: "" });
+  }
+
+  // 🔹 Buscar lista de contas
+  async function fetchAccounts() {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:8080/accounts", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Erro ao buscar contas");
+      const data = await res.json();
+      setAccounts(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Erro ao buscar contas:", error);
+      setAccounts([]);
+    }
+  }
 
   // 🔹 Buscar rendas
   async function fetchIncomes() {
@@ -28,15 +73,18 @@ export default function Incomes() {
     }
   }
 
-  // 🔹 Cadastrar renda
+  // 🔹 Cadastrar ou atualizar renda
   async function handleSubmit(e) {
     e.preventDefault();
-    setMessage("");
 
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:8080/incomes", {
-        method: "POST",
+      const url = editingId
+        ? `http://localhost:8080/incomes/update?id=${editingId}`
+        : "http://localhost:8080/incomes";
+      
+      const res = await fetch(url, {
+        method: editingId ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -45,27 +93,28 @@ export default function Incomes() {
           ...form,
           amount: parseFloat(form.amount),
           date: form.date ? new Date(form.date).toISOString() : new Date().toISOString(),
+          account_id: form.account_id ? parseInt(form.account_id) : null,
         }),
       });
 
       if (res.ok) {
-        setMessage("✅ Renda cadastrada com sucesso!");
-        setForm({ description: "", amount: "", date: "" });
+        setToast({ show: true, message: editingId ? "Renda atualizada!" : "Renda cadastrada!", type: "success" });
+        setForm({ description: "", amount: "", date: "", account_id: "" });
+        setEditingId(null);
         refreshSummary();
         fetchIncomes();
+        fetchAccounts();
       } else {
-        setMessage("❌ Erro ao cadastrar renda.");
+        setToast({ show: true, message: "Erro ao cadastrar renda", type: "error" });
       }
     } catch (error) {
       console.error("Erro:", error);
-      setMessage("❌ Erro de conexão com o servidor.");
+      setToast({ show: true, message: "Erro de conexão", type: "error" });
     }
   }
 
   // 🔹 Excluir renda
   async function deleteIncome(id) {
-    if (!confirm("Tem certeza que deseja excluir esta renda?")) return;
-
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`http://localhost:8080/incomes/delete?id=${id}`, {
@@ -74,108 +123,187 @@ export default function Incomes() {
       });
 
       if (res.ok) {
-        setMessage("🗑️ Renda removida com sucesso!");
+        setToast({ show: true, message: "Renda removida!", type: "success" });
         refreshSummary();
         fetchIncomes();
+        fetchAccounts();
       } else {
-        setMessage("❌ Erro ao remover renda.");
+        setToast({ show: true, message: "Erro ao remover renda", type: "error" });
       }
     } catch (error) {
       console.error("Erro:", error);
-      setMessage("❌ Erro de conexão ao tentar excluir.");
+      setToast({ show: true, message: "Erro de conexão", type: "error" });
     }
+    setDeleteModal({ isOpen: false, incomeId: null, incomeDesc: "" });
   }
 
   useEffect(() => {
     fetchIncomes();
+    fetchAccounts();
   }, []);
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-white rounded-xl shadow">
-      <h1 className="text-2xl font-bold mb-4 text-center">Cadastrar Renda</h1>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-lg p-8 text-white shadow-lg">
+        <h1 className="text-4xl font-bold mb-2">Minhas Rendas</h1>
+        <p className="text-emerald-100">Registre todas as suas fontes de renda</p>
+      </div>
 
-      {/* Formulário */}
-      <form onSubmit={handleSubmit} className="space-y-3 mb-6">
-        <input
-          type="text"
-          placeholder="Descrição (ex: Salário, VR...)"
-          className="w-full p-2 border rounded"
-          value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-          required
-        />
+      <div className="grid md:grid-cols-3 gap-6">
+        {/* Form */}
+        <div className="md:col-span-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-6 sticky top-24">
+          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+            <MdAttachMoney className="text-emerald-400" /> 
+            {editingId ? "Editar Renda" : "Nova Renda"}
+          </h2>
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Descrição</label>
+              <input
+                type="text"
+                placeholder="Ex: Salário, VR, Freelance..."
+                className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg p-2 focus:border-teal-400 focus:outline-none"
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                required
+              />
+            </div>
 
-        <input
-          type="number"
-          placeholder="Valor"
-          className="w-full p-2 border rounded"
-          value={form.amount}
-          onChange={(e) => setForm({ ...form, amount: e.target.value })}
-          required
-        />
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Valor</label>
+              <CurrencyInput
+                className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg p-2 focus:border-emerald-400 focus:outline-none"
+                value={form.amount}
+                onChange={(val) => setForm({ ...form, amount: val })}
+                required
+              />
+            </div>
 
-        <input
-          type="date"
-          className="w-full p-2 border rounded"
-          value={form.date}
-          onChange={(e) => setForm({ ...form, date: e.target.value })}
-        />
-
-        <button
-          type="submit"
-          className="w-full bg-green-700 hover:bg-green-800 text-white font-semibold py-2 rounded-lg shadow-sm transition"
-        >
-          + Adicionar Renda
-        </button>
-      </form>
-
-      {message && (
-        <p
-          className={`mt-2 text-center ${
-            message.startsWith("✅") || message.startsWith("🗑️")
-              ? "text-green-600"
-              : "text-red-600"
-          }`}
-        >
-          {message}
-        </p>
-      )}
-
-      {/* Lista de rendas */}
-      <h2 className="text-xl font-semibold mt-8 mb-3 text-center">
-        Minhas Rendas
-      </h2>
-
-      {Array.isArray(incomes) && incomes.length > 0 ? (
-        <ul className="divide-y divide-gray-200">
-          {incomes.map((inc) => (
-            <li
-              key={inc.id}
-              className="flex justify-between items-center py-2 px-1 hover:bg-gray-50 rounded"
-            >
-              <div>
-                <p className="font-medium">{inc.description}</p>
-                <p className="text-sm text-gray-500">
-                  R$ {inc.amount ? inc.amount.toFixed(2) : "0.00"} —{" "}
-                  {inc.date
-                    ? new Date(inc.date).toLocaleDateString("pt-BR")
-                    : "Data não informada"}
-                </p>
-              </div>
-              <button
-                onClick={() => deleteIncome(inc.id)}
-                className="text-red-500 hover:text-red-700 text-lg"
-                title="Excluir"
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Conta</label>
+              <select
+                className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg p-2 focus:border-emerald-400 focus:outline-none"
+                value={form.account_id}
+                onChange={(e) => setForm({ ...form, account_id: e.target.value })}
               >
-                🗑️
+                <option value="">Selecione uma conta (opcional)</option>
+                {accounts.map((acc) => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.name} - {formatCurrencyBR(acc.balance)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Data</label>
+              <div className="relative flex items-center">
+                <DatePicker
+                  selected={form.date ? new Date(form.date) : null}
+                  onChange={(date) => {
+                    if (date) {
+                      const dateStr = date.toISOString().split('T')[0];
+                      setForm({ ...form, date: dateStr });
+                    }
+                  }}
+                  dateFormat="dd/MM/yyyy"
+                  placeholderText="Selecione a data"
+                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg p-2 focus:border-emerald-400 focus:outline-none"
+                />
+                <HiCalendar className="absolute right-3 text-gray-400 pointer-events-none text-lg" />
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-4">
+              <button
+                type="submit"
+                className="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2 rounded-lg transition duration-200"
+              >
+                {editingId ? "Salvar" : "+ Adicionar Renda"}
               </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-center text-gray-500">
-          Nenhuma renda registrada ainda.
-        </p>
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  className="px-4 bg-slate-600 hover:bg-slate-700 text-white font-semibold py-2 rounded-lg transition duration-200"
+                >
+                  Cancelar
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+
+        {/* Lista */}
+        <div className="md:col-span-2">
+          {Array.isArray(incomes) && incomes.length > 0 ? (
+            <div className="grid gap-3">
+              {incomes.map((inc) => (
+                <div key={inc.id} className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-4 hover:border-teal-400/50 transition duration-200">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-white">{inc.description}</h3>
+                      <p className="text-sm text-gray-400 mt-1">
+                        {inc.date
+                          ? new Date(inc.date).toLocaleDateString("pt-BR", { 
+                              weekday: "short", 
+                              year: "numeric", 
+                              month: "short", 
+                              day: "numeric" 
+                            })
+                          : "Data não informada"}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 ml-2">
+                      <button
+                        onClick={() => startEdit(inc)}
+                        className="text-emerald-400 hover:text-emerald-300 transition duration-200 flex items-center gap-1"
+                        title="Editar"
+                      >
+                        <HiPencil className="text-lg" />
+                      </button>
+                      <button
+                        onClick={() => setDeleteModal({ isOpen: true, incomeId: inc.id, incomeDesc: inc.description })}
+                        className="text-red-400 hover:text-red-300 transition duration-200 flex items-center gap-1"
+                        title="Excluir"
+                      >
+                        <HiTrash className="text-lg" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-slate-700">
+                    <p className="text-2xl font-bold text-emerald-400">{formatCurrencyBR(inc.amount)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white/5 border-2 border-dashed border-white/20 rounded-lg p-12 text-center">
+              <p className="text-gray-400 text-lg">Nenhuma renda registrada</p>
+              <p className="text-gray-500 text-sm mt-2">Comece a registrar suas rendas ao lado</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <ConfirmModal
+        isOpen={deleteModal.isOpen}
+        title="Excluir Renda"
+        message={`Tem certeza que deseja excluir a renda "${deleteModal.incomeDesc}"? Esta ação não pode ser desfeita.`}
+        onConfirm={() => deleteIncome(deleteModal.incomeId)}
+        onCancel={() => setDeleteModal({ isOpen: false, incomeId: null, incomeDesc: "" })}
+        confirmText="Excluir"
+        cancelText="Cancelar"
+        isDangerous={true}
+      />
+
+      {toast.show && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ show: false, message: "", type: "success" })}
+        />
       )}
     </div>
   );
