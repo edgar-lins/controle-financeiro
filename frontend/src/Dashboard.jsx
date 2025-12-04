@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { useSummary } from "./SummaryContext";
-import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { HiChartBar, HiHome, HiSparkles, HiTrendingUp, HiCheckCircle, HiExclamation, HiChevronDown } from "react-icons/hi";
+import { formatCurrencyBR } from "./utils/format";
 
-export default function Dashboard() {
+export default function Dashboard({ userName, getGreeting }) {
   const [summary, setSummary] = useState(null);
+  const [monthlyHistory, setMonthlyHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [month, setMonth] = useState("");
   const [year, setYear] = useState("");
@@ -30,142 +33,256 @@ export default function Dashboard() {
       }
     }
 
+    async function fetchMonthlyHistory() {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch("http://localhost:8080/summary/history", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        setMonthlyHistory(data || []);
+      } catch (error) {
+        console.error("Erro ao buscar histórico mensal:", error);
+      }
+    }
+
     fetchSummary();
-  }, [refreshKey, month, year]); // 👈 Recarrega quando filtros mudam
+    fetchMonthlyHistory();
+  }, [refreshKey, month, year]);
 
   if (loading)
-    return <p className="text-center mt-10 text-gray-600">Carregando resumo...</p>;
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mb-4"></div>
+          <p className="text-gray-300">Carregando seu resumo financeiro...</p>
+        </div>
+      </div>
+    );
   if (!summary)
-    return <p className="text-center mt-10 text-red-500">Erro ao carregar dados 😢</p>;
+    return (
+      <div className="bg-red-500/20 border border-red-500/50 text-red-200 p-6 rounded-lg text-center">
+        ❌ Erro ao carregar dados
+      </div>
+    );
 
   return (
-    <div className="max-w-2xl mx-auto p-6 text-gray-800">
-      <h1 className="text-3xl font-bold mb-4 text-center">Resumo Financeiro</h1>
-      <p className="text-center text-gray-500 mb-6">
-        {summary.mes} / {summary.ano}
-      </p>
-
-      {/* Filtros de mês/ano */}
-      <div className="flex items-end gap-3 mb-6 justify-center">
-        <div>
-          <label className="block text-sm text-gray-600 mb-1">Mês</label>
-          <select
-            className="border rounded p-2"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-          >
-            <option value="">Atual</option>
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg p-8 text-white shadow-lg">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-4xl font-bold mb-2">Resumo Financeiro</h1>
+            <p className="text-blue-100 text-lg">{summary.mes}/{summary.ano}</p>
+          </div>
+          {userName && getGreeting && (
+            <div className="bg-black/15 backdrop-blur-md rounded-2xl px-5 py-3 shadow-inner">
+              <p className="text-lg font-semibold text-blue-100">
+                {getGreeting()}, <span className="font-bold bg-gradient-to-r from-cyan-300 via-teal-300 to-emerald-400 bg-clip-text text-transparent animate-gradient bg-[length:200%_auto]">{userName}</span>!
+              </p>
+            </div>
+          )}
         </div>
-        <div>
-          <label className="block text-sm text-gray-600 mb-1">Ano</label>
-          <input
-            type="number"
-            className="border rounded p-2 w-28"
-            placeholder={summary.ano}
-            value={year}
-            onChange={(e) => setYear(e.target.value)}
-          />
-        </div>
-        <button
-          className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-2 rounded"
-          onClick={() => { setMonth(""); setYear(""); }}
-        >
-          Limpar
-        </button>
       </div>
 
-      {/* Bloco de renda e gastos */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-green-100 p-4 rounded-xl text-center">
-          <p className="text-sm text-gray-600">Renda Total</p>
-          <p className="text-xl font-bold text-green-700">
-            R$ {summary.renda_total.toFixed(2)}
-          </p>
+      {/* Filtros */}
+      <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-4">
+        <div className="flex flex-wrap gap-4 items-end">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Mês</label>
+            <div className="relative">
+              <select
+                className="bg-slate-700 border border-slate-600 text-white rounded-lg p-2 pr-10 w-40 focus:border-cyan-400 focus:outline-none appearance-none cursor-pointer"
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+              >
+                <option value="">Atual</option>
+                <option value="1">Janeiro</option>
+                <option value="2">Fevereiro</option>
+                <option value="3">Março</option>
+                <option value="4">Abril</option>
+                <option value="5">Maio</option>
+                <option value="6">Junho</option>
+                <option value="7">Julho</option>
+                <option value="8">Agosto</option>
+                <option value="9">Setembro</option>
+                <option value="10">Outubro</option>
+                <option value="11">Novembro</option>
+                <option value="12">Dezembro</option>
+              </select>
+              <HiChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Ano</label>
+            <div className="relative">
+              <select
+                className="bg-slate-700 border border-slate-600 text-white rounded-lg p-2 pr-10 w-32 focus:border-cyan-400 focus:outline-none appearance-none cursor-pointer"
+                size="1"
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+              >
+                <option value="">Atual</option>
+                {Array.from({ length: 31 }, (_, i) => 2020 + i).map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+              <HiChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+          <button
+            className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition duration-200"
+            onClick={() => { setMonth(""); setYear(""); }}
+          >
+            Limpar
+          </button>
+        </div>
+      </div>
+
+      {/* Cards de Renda e Gastos */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-gradient-to-br from-emerald-600 to-emerald-700 rounded-lg p-6 text-white shadow-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-emerald-100 text-sm font-medium">Renda Total</p>
+              <p className="text-3xl font-bold mt-2">
+                {formatCurrencyBR(summary.renda_total)}
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div className="bg-red-100 p-4 rounded-xl text-center">
-          <p className="text-sm text-gray-600">Gastos Totais</p>
-          <p className="text-xl font-bold text-red-700">
-            R$ {summary.gasto_total.toFixed(2)}
-          </p>
+        <div className="bg-gradient-to-br from-red-600 to-red-700 rounded-lg p-6 text-white shadow-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-red-100 text-sm font-medium">Gastos Totais</p>
+              <p className="text-3xl font-bold mt-2">
+                {formatCurrencyBR(summary.gasto_total)}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Distribuição 50/30/20 */}
-      <div className="mt-6 bg-gray-100 p-4 rounded-xl">
-        <h2 className="text-lg font-semibold mb-3 text-center">
+      <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-6">
+        <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+          <HiChartBar className="text-cyan-400" />
           Distribuição 50 / 30 / 20
         </h2>
-        <div className="space-y-3">
+        <div className="space-y-4">
           <Category
-            name="Fixos"
+            icon={<HiHome className="text-blue-400" />}
+            name="Despesas Fixas (50%)"
             ideal={summary.ideal_fixos}
             real={summary.real_fixos}
-            color="blue"
           />
           <Category
-            name="Lazer"
+            icon={<HiSparkles className="text-purple-400" />}
+            name="Lazer & Diversão (30%)"
             ideal={summary.ideal_lazer}
             real={summary.real_lazer}
-            color="purple"
           />
           <Category
-            name="Investimentos"
+            icon={<HiTrendingUp className="text-emerald-400" />}
+            name="Investimentos (20%)"
             ideal={summary.ideal_invest}
             real={summary.real_invest}
-            color="yellow"
           />
         </div>
       </div>
 
-      {/* Exportar CSV */}
-      <div className="mt-6 flex justify-center gap-3">
-        <ExportCSV endpoint="http://localhost:8080/expenses" filename="gastos.csv" label="Exportar Gastos" />
-        <ExportCSV endpoint="http://localhost:8080/incomes" filename="rendas.csv" label="Exportar Rendas" />
-      </div>
-
       {/* Saldo Restante */}
-      <div className="mt-4 bg-white p-4 rounded-xl text-center shadow-sm">
-        <p className="text-sm text-gray-600">Saldo Restante Real</p>
-        <p
-          className={`text-2xl font-bold ${
-            summary.saldo_restante >= 0 ? "text-green-700" : "text-red-700"
-          }`}
-        >
-          R$ {summary.saldo_restante.toFixed(2)}
+      <div className={`rounded-lg p-6 text-white shadow-lg ${
+        summary.saldo_restante >= 0
+          ? "bg-gradient-to-br from-cyan-600 to-blue-600"
+          : "bg-gradient-to-br from-orange-600 to-red-600"
+      }`}>
+        <p className="text-blue-100 text-sm font-medium mb-2">Saldo Restante</p>
+        <p className="text-4xl font-bold">
+          {formatCurrencyBR(summary.saldo_restante)}
+        </p>
+        <p className="text-blue-100 text-sm mt-2 flex items-center gap-2">
+          {summary.saldo_restante >= 0
+            ? <><HiCheckCircle className="text-emerald-300" /> Você está no controle!</>
+            : <><HiExclamation className="text-orange-300" /> Gasto acima do planejado</>}
         </p>
       </div>
 
+      {/* Evolução Mensal */}
+      {monthlyHistory.length > 0 && (
+        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-6">
+          <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+            <HiTrendingUp className="text-cyan-400" />
+            Evolução dos Últimos 12 Meses
+          </h2>
+          <ResponsiveContainer width="100%" height={350}>
+            <BarChart data={monthlyHistory} margin={{ top: 20, right: 30, left: 0, bottom: 50 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+              <XAxis dataKey="month" stroke="rgb(209, 213, 219)" />
+              <YAxis stroke="rgb(209, 213, 219)" />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: "rgba(15, 23, 42, 0.95)", 
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  borderRadius: "8px",
+                  color: "white"
+                }}
+                formatter={(value) => `R$ ${value.toFixed(2)}`}
+              />
+              <Legend 
+                iconType="circle"
+                iconSize={6}
+                align="center"
+                verticalAlign="bottom"
+                formatter={(value) => <span style={{ verticalAlign: "middle" }}>{value}</span>}
+                wrapperStyle={{ marginTop: "65px" }}
+              />
+              <Bar dataKey="income" fill="#10b981" name="Renda" />
+              <Bar dataKey="expenses" fill="#ef4444" name="Gastos" />
+              <Bar dataKey="balance" fill="#06b6d4" name="Saldo" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
+      {/* Botões de Exportação */}
+      <div className="flex flex-wrap gap-3 justify-center">
+        <ExportCSV endpoint="http://localhost:8080/expenses" filename="gastos.csv" label="Exportar Gastos" />
+        <ExportCSV endpoint="http://localhost:8080/incomes" filename="rendas.csv" label="Exportar Rendas" />
+      </div>
     </div>
   );
 }
 
 // Componente para exibir cada categoria do 50/30/20
-function Category({ name, ideal, real, color }) {
+function Category({ icon, name, ideal, real }) {
   const perc = ideal > 0 ? ((real / ideal) * 100).toFixed(1) : 0;
-  const statusColor =
-    perc < 80
-      ? "text-yellow-600"
-      : perc <= 100
-      ? "text-green-600"
-      : "text-red-600";
+  const isOverBudget = perc > 100;
+  const isWarning = perc >= 80 && perc <= 100;
+  const isGood = perc < 80;
 
   return (
-    <div className="bg-white p-3 rounded-lg shadow-sm flex justify-between items-center">
-      <div>
-        <p className="font-medium">{name}</p>
-        <p className="text-sm text-gray-500">Ideal: R$ {ideal.toFixed(2)}</p>
-      </div>
-      <div className="text-right">
-        <p className={`font-semibold ${statusColor}`}>
-          R$ {real ? real.toFixed(2) : "0.00"}
+    <div className="bg-slate-700/50 border border-slate-600 p-4 rounded-lg">
+      <div className="flex justify-between items-center mb-3">
+        <p className="text-white font-semibold flex items-center gap-2">{icon} {name}</p>
+        <p className={`text-lg font-bold ${
+          isGood ? "text-emerald-400" : isWarning ? "text-yellow-400" : "text-red-400"
+        }`}>
+          {perc}%
         </p>
-        <p className="text-xs text-gray-500">{perc}% do ideal</p>
+      </div>
+      <div className="w-full bg-slate-600 rounded-full h-3 overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-300 ${
+            isGood ? "bg-emerald-500" : isWarning ? "bg-yellow-500" : "bg-red-500"
+          }`}
+          style={{ width: `${Math.min(perc, 100)}%` }}
+        ></div>
+      </div>
+      <div className="flex justify-between text-xs text-gray-400 mt-2">
+        <span>R$ {real?.toFixed(2) || "0.00"}</span>
+        <span>Limite: {formatCurrencyBR(ideal)}</span>
       </div>
     </div>
   );
@@ -210,7 +327,7 @@ function ExportCSV({ endpoint, filename, label }) {
   return (
     <button
       onClick={handleDownload}
-      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded disabled:opacity-60"
+      className="bg-cyan-600 hover:bg-cyan-700 text-white px-6 py-2 rounded-lg font-medium transition duration-200 disabled:opacity-60"
       disabled={downloading}
     >
       {downloading ? "Exportando..." : label}
