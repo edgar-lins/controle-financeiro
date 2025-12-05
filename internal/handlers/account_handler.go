@@ -83,7 +83,11 @@ func (h *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 			WHERE user_id = $1 AND from_account_id = $2
 		`, userID, acc.ID).Scan(&outgoingTransfers)
 
-		acc.Balance = (totalIncomes + incomingTransfers) - (totalExpenses + outgoingTransfers)
+		// Pega o saldo inicial do banco de dados
+		var initialBalance float64
+		h.DB.QueryRow(`SELECT balance FROM accounts WHERE id = $1 AND user_id = $2`, acc.ID, userID).Scan(&initialBalance)
+
+		acc.Balance = initialBalance + (totalIncomes + incomingTransfers) - (totalExpenses + outgoingTransfers)
 		accounts = append(accounts, acc)
 	}
 
@@ -209,7 +213,15 @@ func (h *AccountHandler) TransferFunds(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	currentBalance := (totalIncomes + incomingTransfers) - (totalExpenses + outgoingTransfers)
+	// saldo inicial da conta de origem
+	var initialBalance float64
+	if err := h.DB.QueryRow(`SELECT balance FROM accounts WHERE id = $1 AND user_id = $2`, req.FromAccountID, userID).Scan(&initialBalance); err != nil {
+		log.Printf("transfer initial balance error user=%d acc=%d err=%v", userID, req.FromAccountID, err)
+		http.Error(w, "Erro ao calcular saldo", http.StatusInternalServerError)
+		return
+	}
+
+	currentBalance := initialBalance + (totalIncomes + incomingTransfers) - (totalExpenses + outgoingTransfers)
 
 	// Validate sufficient balance
 	if currentBalance < req.Amount {
@@ -363,13 +375,8 @@ func (h *AccountHandler) RecalculateAccountBalance(accountID int64, userID int) 
 		return err
 	}
 
-	newBalance := (totalIncomes + incomingTransfers) - (totalExpenses + outgoingTransfers)
-
-	_, err = h.DB.Exec(`
-		UPDATE accounts
-		SET balance = $1
-		WHERE id = $2 AND user_id = $3
-	`, newBalance, accountID, userID)
+	// Não atualiza o balance no banco, ele representa o saldo inicial
+	// O saldo atual é sempre calculado dinamicamente: initial + incomes + transfers_in - expenses - transfers_out
 
 	return err
 }
