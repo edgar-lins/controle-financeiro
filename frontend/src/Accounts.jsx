@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { HiTrash, HiPencil, HiSwitchHorizontal, HiX, HiChevronDown } from "react-icons/hi";
+import { HiTrash, HiPencil, HiSwitchHorizontal, HiX, HiChevronDown, HiExclamationCircle } from "react-icons/hi";
 import { MdAttachMoney } from "react-icons/md";
 import { formatCurrencyBR } from "./utils/format";
 import { AccountTypeSelect } from "./components/AccountTypeSelect";
@@ -302,7 +302,7 @@ export default function Accounts() {
                         {formatCurrencyBR(acc.balance)}
                       </p>
                       {isNegative && (
-                        <p className="text-red-300 text-xs mt-2">⚠️ Saldo negativo</p>
+                        <p className="text-red-300 text-xs mt-2 flex items-center gap-1"><HiExclamationCircle /> Saldo negativo</p>
                       )}
                     </div>
                   </div>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSummary } from "./SummaryContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { HiChartBar, HiHome, HiSparkles, HiTrendingUp, HiCheckCircle, HiExclamation, HiChevronDown, HiInformationCircle } from "react-icons/hi";
+import { HiChartBar, HiHome, HiSparkles, HiTrendingUp, HiCheckCircle, HiExclamation, HiChevronDown, HiInformationCircle, HiXCircle, HiExclamationCircle } from "react-icons/hi";
 import { formatCurrencyBR } from "./utils/format";
 import API_URL from "./config/api";
 import { ExportData } from "./components/ExportData";
@@ -159,7 +159,7 @@ export default function Dashboard({ userName, getGreeting }) {
   if (!summary)
     return (
       <div className="bg-red-500/20 border border-red-500/50 text-red-200 p-6 rounded-lg text-center">
-        ❌ Erro ao carregar dados
+        <HiXCircle className="inline mr-1" /> Erro ao carregar dados
       </div>
     );
 
@@ -384,7 +384,7 @@ export default function Dashboard({ userName, getGreeting }) {
                     </p>
                     {isNegative && (
                       <p className="text-red-300 text-xs mt-2">
-                        ⚠️ Saldo negativo - verifique suas transações
+                        <HiExclamationCircle className="inline mr-1" /> Saldo negativo - verifique suas transações
                       </p>
                     )}
                   </div>

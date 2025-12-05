@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { HiDownload } from "react-icons/hi";
+import { HiDownload, HiCheckCircle, HiClock } from "react-icons/hi";
 
 export function ExportData() {
   const [downloading, setDownloading] = useState(false);
@@ -80,7 +80,7 @@ export function ExportData() {
       goals.forEach((goal) => {
         const percent = ((goal.current_amount / goal.target_amount) * 100).toFixed(1);
         const falta = Math.max(0, goal.target_amount - goal.current_amount);
-        const status = goal.current_amount >= goal.target_amount ? "✓ Concluída" : "⏳ Em andamento";
+        const status = goal.current_amount >= goal.target_amount ? "Concluída" : "Em andamento";
         const deadline = goal.deadline ? new Date(goal.deadline).toLocaleDateString("pt-BR") : "-";
         csvData.push([
           goal.name,
