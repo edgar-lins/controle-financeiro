@@ -197,7 +197,7 @@ export default function Goals() {
 
       <div className="grid md:grid-cols-3 gap-6">
         {/* Form - Criar Meta */}
-        <div className="md:col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-6 sticky top-24">
+        <div className="md:col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-6 md:sticky md:top-24">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <MdAttachMoney className="text-purple-400" /> 
             {editingId ? "Editar Meta" : "Nova Meta"}
@@ -300,24 +300,24 @@ export default function Goals() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => openAddMoney(goal)}
-                          className="text-emerald-400 hover:text-emerald-300 transition duration-200 flex items-center gap-1"
+                          className="text-emerald-400 hover:text-emerald-300 transition duration-200 flex items-center justify-center gap-1 p-2 min-w-[44px] min-h-[44px] -m-2"
                           title="Adicionar dinheiro"
                         >
-                          <HiPlus className="text-lg" />
+                          <HiPlus className="text-xl" />
                         </button>
                         <button
                           onClick={() => startEdit(goal)}
-                          className="text-slate-400 hover:text-slate-300 transition duration-200 flex items-center gap-1"
+                          className="text-slate-400 hover:text-slate-300 transition duration-200 flex items-center justify-center gap-1 p-2 min-w-[44px] min-h-[44px] -m-2"
                           title="Editar meta"
                         >
-                          <HiPencil className="text-lg" />
+                          <HiPencil className="text-xl" />
                         </button>
                         <button
                           onClick={() => setDeleteModal({ isOpen: true, goalId: goal.id, goalName: goal.name })}
-                          className="text-red-400 hover:text-red-300 transition duration-200 flex items-center gap-1"
+                          className="text-red-400 hover:text-red-300 transition duration-200 flex items-center justify-center gap-1 p-2 min-w-[44px] min-h-[44px] -m-2"
                           title="Excluir meta"
                         >
-                          <HiTrash className="text-lg" />
+                          <HiTrash className="text-xl" />
                         </button>
                       </div>
                     </div>
@@ -364,7 +364,7 @@ export default function Goals() {
 
       {/* Modal - Adicionar Dinheiro */}
       {addMoneyModal.isOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
           <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full border border-white/20">
             <h3 className="text-xl font-bold text-white mb-4">Adicionar à Meta</h3>
             <p className="text-gray-300 mb-4">{addMoneyModal.goalName}</p>

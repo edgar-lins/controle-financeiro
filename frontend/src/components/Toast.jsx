@@ -31,9 +31,9 @@ export function Toast({ message, type = "success", onClose }) {
   const style = styles[type] || styles.success;
 
   return (
-    <div className="fixed top-4 right-4 z-[9999] animate-slideDown">
+    <div className="fixed top-4 right-4 z-[10000] animate-slideDown">
       <div
-        className={`${style.bg} ${style.border} border-l-4 rounded-lg shadow-2xl p-4 flex items-center gap-3 min-w-[300px] max-w-[400px] backdrop-blur-md`}
+        className={`${style.bg} ${style.border} border-l-4 rounded-lg shadow-2xl p-4 flex items-center gap-3 min-w-[280px] max-w-[95vw] sm:max-w-[400px] backdrop-blur-md`}
       >
         <div className="text-white">{style.icon}</div>
         <p className="text-white font-medium flex-1">{message}</p>

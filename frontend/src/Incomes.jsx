@@ -378,20 +378,20 @@ export default function Incomes() {
                         })()}
                       </div>
                     </div>
-                    <div className="flex gap-2 ml-2">
+                    <div className="flex gap-1">
                       <button
                         onClick={() => startEdit(inc)}
-                        className="text-slate-400 hover:text-slate-300 transition duration-200 flex items-center gap-1"
+                        className="text-slate-400 hover:text-slate-300 transition duration-200 flex items-center justify-center p-2 min-w-[44px] min-h-[44px]"
                         title="Editar"
                       >
-                        <HiPencil className="text-lg" />
+                        <HiPencil className="text-xl" />
                       </button>
                       <button
                         onClick={() => setDeleteModal({ isOpen: true, incomeId: inc.id, incomeDesc: inc.description })}
-                        className="text-red-400 hover:text-red-300 transition duration-200 flex items-center gap-1"
+                        className="text-red-400 hover:text-red-300 transition duration-200 flex items-center justify-center p-2 min-w-[44px] min-h-[44px]"
                         title="Excluir"
                       >
-                        <HiTrash className="text-lg" />
+                        <HiTrash className="text-xl" />
                       </button>
                     </div>
                   </div>
