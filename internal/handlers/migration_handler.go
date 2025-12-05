@@ -3,7 +3,6 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/edgar-lins/controle-financeiro/internal/middleware"
@@ -104,15 +103,6 @@ func (h *MigrationHandler) MigrateUnlinkedTransactions(w http.ResponseWriter, r 
 	if err != nil {
 		http.Error(w, "Erro ao confirmar migração", http.StatusInternalServerError)
 		return
-	}
-
-	// Após a migração, recalcula o saldo da Carteira Geral
-	// (fora da transação para garantir que as transações linkadas já foram persistidas)
-	accountHandler = &AccountHandler{DB: h.DB}
-	err = accountHandler.RecalculateAccountBalance(defaultAccountID, userID)
-	if err != nil {
-		// Log mas não falha - as transações já foram migradas
-		fmt.Println("Aviso: erro ao recalcular saldo da Carteira Geral:", err)
 	}
 
 	response := map[string]interface{}{

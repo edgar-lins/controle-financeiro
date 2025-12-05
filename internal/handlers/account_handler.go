@@ -147,62 +147,15 @@ func (h *AccountHandler) TransferFunds(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Calculate real balance of origin account (opening + incomes - expenses + incoming transfers - outgoing transfers)
-	var openingBalance, storedBalance, totalIncomes, totalExpenses, incomingTransfers, outgoingTransfers float64
+	// Get the current balance of the origin account
+	var currentBalance float64
 	if err := h.DB.QueryRow(`
-		SELECT opening_balance, balance
-		FROM accounts
-		WHERE user_id = $1 AND id = $2
-	`, userID, req.FromAccountID).Scan(&openingBalance, &storedBalance); err != nil {
-		log.Printf("transfer opening sum error user=%d err=%v", userID, err)
+		SELECT balance FROM accounts WHERE user_id = $1 AND id = $2
+	`, userID, req.FromAccountID).Scan(&currentBalance); err != nil {
+		log.Printf("transfer balance query error user=%d err=%v", userID, err)
 		http.Error(w, "Erro ao calcular saldo", http.StatusInternalServerError)
 		return
 	}
-	if openingBalance == 0 {
-		openingBalance = storedBalance
-	}
-
-	if err := h.DB.QueryRow(`
-		SELECT COALESCE(SUM(amount), 0)
-		FROM incomes
-		WHERE user_id = $1 AND account_id = $2
-	`, userID, req.FromAccountID).Scan(&totalIncomes); err != nil {
-		log.Printf("transfer income sum error user=%d err=%v", userID, err)
-		http.Error(w, "Erro ao calcular saldo", http.StatusInternalServerError)
-		return
-	}
-
-	if err := h.DB.QueryRow(`
-		SELECT COALESCE(SUM(amount), 0)
-		FROM expenses
-		WHERE user_id = $1 AND account_id = $2
-	`, userID, req.FromAccountID).Scan(&totalExpenses); err != nil {
-		log.Printf("transfer expense sum error user=%d err=%v", userID, err)
-		http.Error(w, "Erro ao calcular saldo", http.StatusInternalServerError)
-		return
-	}
-
-	if err := h.DB.QueryRow(`
-		SELECT COALESCE(SUM(amount), 0)
-		FROM transfers
-		WHERE user_id = $1 AND to_account_id = $2
-	`, userID, req.FromAccountID).Scan(&incomingTransfers); err != nil {
-		log.Printf("transfer incoming sum error user=%d err=%v", userID, err)
-		http.Error(w, "Erro ao calcular saldo", http.StatusInternalServerError)
-		return
-	}
-
-	if err := h.DB.QueryRow(`
-		SELECT COALESCE(SUM(amount), 0)
-		FROM transfers
-		WHERE user_id = $1 AND from_account_id = $2
-	`, userID, req.FromAccountID).Scan(&outgoingTransfers); err != nil {
-		log.Printf("transfer outgoing sum error user=%d err=%v", userID, err)
-		http.Error(w, "Erro ao calcular saldo", http.StatusInternalServerError)
-		return
-	}
-
-	currentBalance := (openingBalance + totalIncomes + incomingTransfers) - (totalExpenses + outgoingTransfers)
 
 	// Validate sufficient balance
 	if currentBalance < req.Amount {
@@ -240,12 +193,18 @@ func (h *AccountHandler) TransferFunds(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Recalculate balances after the transfer
-	if err := h.RecalculateAccountBalance(req.FromAccountID, userID); err != nil {
-		log.Printf("transfer recalc origin error user=%d acc=%d err=%v", userID, req.FromAccountID, err)
+	// Update account balances after the transfer
+	// Subtract from origin account and add to destination account
+	_, err = h.DB.Exec(`UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND user_id = $3`,
+		req.Amount, req.FromAccountID, userID)
+	if err != nil {
+		log.Printf("transfer update origin balance error user=%d err=%v", userID, err)
 	}
-	if err := h.RecalculateAccountBalance(req.ToAccountID, userID); err != nil {
-		log.Printf("transfer recalc dest error user=%d acc=%d err=%v", userID, req.ToAccountID, err)
+
+	_, err = h.DB.Exec(`UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3`,
+		req.Amount, req.ToAccountID, userID)
+	if err != nil {
+		log.Printf("transfer update dest balance error user=%d err=%v", userID, err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -299,8 +258,8 @@ func (h *AccountHandler) GetOrCreateDefaultAccount(userID int) (int64, error) {
 	if err == sql.ErrNoRows {
 		// Se não existe, cria uma nova
 		err = h.DB.QueryRow(`
-			INSERT INTO accounts (user_id, name, type, balance, opening_balance)
-			VALUES ($1, 'Carteira Geral', 'corrente', 0, 0)
+			INSERT INTO accounts (user_id, name, type, balance)
+			VALUES ($1, 'Carteira Geral', 'corrente', 0)
 			RETURNING id
 		`, userID).Scan(&accountID)
 
@@ -312,69 +271,4 @@ func (h *AccountHandler) GetOrCreateDefaultAccount(userID int) (int64, error) {
 	}
 
 	return accountID, nil
-}
-
-// RecalculateAccountBalance recalcula o saldo de uma conta baseado em suas transações
-func (h *AccountHandler) RecalculateAccountBalance(accountID int64, userID int) error {
-	var openingBalance, storedBalance, totalIncomes, totalExpenses float64
-
-	if err := h.DB.QueryRow(`
-		SELECT opening_balance, balance
-		FROM accounts
-		WHERE user_id = $1 AND id = $2
-	`, userID, accountID).Scan(&openingBalance, &storedBalance); err != nil {
-		return err
-	}
-
-	if openingBalance == 0 {
-		openingBalance = storedBalance
-	}
-
-	err := h.DB.QueryRow(`
-		SELECT COALESCE(SUM(amount), 0)
-		FROM incomes
-		WHERE user_id = $1 AND account_id = $2
-	`, userID, accountID).Scan(&totalIncomes)
-	if err != nil {
-		return err
-	}
-
-	err = h.DB.QueryRow(`
-		SELECT COALESCE(SUM(amount), 0)
-		FROM expenses
-		WHERE user_id = $1 AND account_id = $2
-	`, userID, accountID).Scan(&totalExpenses)
-	if err != nil {
-		return err
-	}
-
-	var incomingTransfers, outgoingTransfers float64
-
-	err = h.DB.QueryRow(`
-		SELECT COALESCE(SUM(amount), 0)
-		FROM transfers
-		WHERE user_id = $1 AND to_account_id = $2
-	`, userID, accountID).Scan(&incomingTransfers)
-	if err != nil {
-		return err
-	}
-
-	err = h.DB.QueryRow(`
-		SELECT COALESCE(SUM(amount), 0)
-		FROM transfers
-		WHERE user_id = $1 AND from_account_id = $2
-	`, userID, accountID).Scan(&outgoingTransfers)
-	if err != nil {
-		return err
-	}
-
-	newBalance := (openingBalance + totalIncomes + incomingTransfers) - (totalExpenses + outgoingTransfers)
-
-	_, err = h.DB.Exec(`
-		UPDATE accounts
-		SET balance = $1
-		WHERE id = $2 AND user_id = $3
-	`, newBalance, accountID, userID)
-
-	return err
 }
