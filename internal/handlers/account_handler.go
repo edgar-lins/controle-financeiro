@@ -121,14 +121,24 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	opening := acc.Opening
-	if opening == 0 {
+	if opening == 0 && acc.Balance != 0 {
 		opening = acc.Balance
 	}
 
+	log.Printf("update account user=%d id=%s name=%s opening_balance=%f", userID, id, acc.Name, opening)
+
 	query := `UPDATE accounts SET name = $1, type = $2, opening_balance = $3 WHERE id = $4 AND user_id = $5`
-	_, err := h.DB.Exec(query, acc.Name, acc.Type, opening, id, userID)
+	result, err := h.DB.Exec(query, acc.Name, acc.Type, opening, id, userID)
 	if err != nil {
+		log.Printf("update account exec error user=%d err=%v", userID, err)
 		http.Error(w, "Erro ao atualizar conta", http.StatusInternalServerError)
+		return
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil || rowsAffected == 0 {
+		log.Printf("update account no rows affected user=%d id=%s err=%v", userID, id, err)
+		http.Error(w, "Conta não encontrada", http.StatusNotFound)
 		return
 	}
 

@@ -77,7 +77,9 @@ export default function Accounts() {
         const currentOpening = editingAccount?.opening_balance || 0;
         const desiredBalance = parseFloat(form.balance) || 0;
         const balanceDiff = desiredBalance - currentBalance;
-        const newOpening = currentOpening + balanceDiff;
+        const newOpening = Math.round((currentOpening + balanceDiff) * 100) / 100;
+        
+        console.log('Edit calculation:', { currentBalance, currentOpening, desiredBalance, balanceDiff, newOpening });
         
         payload = {
           name: form.name,
