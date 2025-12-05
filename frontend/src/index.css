@@ -41,3 +41,20 @@ input::-webkit-calendar-picker-indicator:hover {
 .animate-slideDown {
   animation: slideDown 0.3s ease-out;
 }
+
+/* Smooth transition for dashboard collapsible sections */
+.collapsible-panel {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: max-height 0.55s cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 0.55s cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 0.55s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.collapsible-panel.open {
+  max-height: 2000px;
+  opacity: 1;
+  transform: translateY(0);
+}

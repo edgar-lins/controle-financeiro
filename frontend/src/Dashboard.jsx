@@ -16,12 +16,24 @@ export default function Dashboard({ userName, getGreeting }) {
   const [migrating, setMigrating] = useState(false);
   const [month, setMonth] = useState("");
   const [year, setYear] = useState("");
+  const [expandedSections, setExpandedSections] = useState({
+    patrimonio: true,
+    distribuicao: false,
+    historico: false,
+  });
   const [preferences, setPreferences] = useState({
     expenses_percent: 50,
     entertainment_percent: 30,
     investment_percent: 20,
   });
   const { refreshKey } = useSummary();
+
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
 
   useEffect(() => {
     async function fetchPreferences() {
@@ -289,28 +301,40 @@ export default function Dashboard({ userName, getGreeting }) {
       {/* Widget Patrimônio */}
       {accounts.length > 0 ? (
         <div className="bg-gradient-to-br from-cyan-900 to-blue-900 border border-cyan-700 rounded-xl p-6 shadow-lg">
-          <div className="relative">
-            <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-              <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-              </svg>
-              Patrimônio Total
-            </h2>
-          </div>
-          <div className="flex items-end justify-between mb-4">
-            <div>
-              <p className="text-cyan-200 text-sm font-medium">Soma de todas as contas</p>
-              <p className="text-4xl font-bold text-white mt-2">
-                {formatCurrencyBR(accounts.reduce((sum, acc) => sum + acc.balance, 0))}
-              </p>
+          <button
+            onClick={() => toggleSection('patrimonio')}
+            className="w-full text-left hover:opacity-80 transition-opacity"
+          >
+            <div className="relative">
+              <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+                <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+                Patrimônio Total
+                <HiChevronDown className={`ml-auto text-xl transition-transform ${expandedSections.patrimonio ? 'rotate-0' : '-rotate-90'}`} />
+              </h2>
+              <div className="flex items-end justify-between">
+                <div>
+                  <p className="text-cyan-200 text-sm font-medium">Soma de todas as contas</p>
+                  <p className="text-4xl font-bold text-white mt-2">
+                    {formatCurrencyBR(accounts.reduce((sum, acc) => sum + acc.balance, 0))}
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
-            {accounts
-              .sort((a, b) => {
-                // Carteira Geral sempre primeiro
-                if (a.name === "Carteira Geral") return -1;
-                if (b.name === "Carteira Geral") return 1;
+          </button>
+
+          <div
+            className={`collapsible-panel ${expandedSections.patrimonio ? "open" : ""}`}
+            aria-hidden={!expandedSections.patrimonio}
+          >
+            <div className="mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
+                {accounts
+                  .sort((a, b) => {
+                    // Carteira Geral sempre primeiro
+                    if (a.name === "Carteira Geral") return -1;
+                    if (b.name === "Carteira Geral") return 1;
                 // Depois ordena alfabeticamente
                 return a.name.localeCompare(b.name);
               })
@@ -335,15 +359,17 @@ export default function Dashboard({ userName, getGreeting }) {
                         <HiExclamation className="text-lg" />
                       </div>
                     )}
-                    <div className="flex items-start justify-between gap-2 pr-6">
+                    <div className="flex items-start justify-between gap-2 pr-10">
                       <div>
                         <p className="text-cyan-300 text-xs font-medium uppercase">{acc.type}</p>
                         <p className="text-white font-semibold mt-1">{acc.name}</p>
                       </div>
-                      {isCarteiraGeral && (
-                        <InfoIcon tooltip="A Carteira Geral agrupa transações sem uma conta específica. Novos gastos/rendas sem conta selecionada vão para lá automaticamente." />
-                      )}
                     </div>
+                    {isCarteiraGeral && (
+                      <div className="absolute top-3 right-3">
+                        <InfoIcon tooltip="A Carteira Geral agrupa transações sem uma conta específica. Novos gastos/rendas sem conta selecionada vão para lá automaticamente." />
+                      </div>
+                    )}
                     <p
                       className={`text-lg font-bold mt-2 ${
                         isNegative
@@ -363,11 +389,13 @@ export default function Dashboard({ userName, getGreeting }) {
                   </div>
                 );
               })}
+              </div>
+              <p className="text-cyan-300 text-xs mt-4 flex items-center gap-1">
+                <HiCheckCircle className="text-cyan-400" />
+                Este é o dinheiro real disponível em suas contas. Rendas e gastos atualizam automaticamente estes saldos.
+              </p>
+            </div>
           </div>
-          <p className="text-cyan-300 text-xs mt-4 flex items-center gap-1">
-            <HiCheckCircle className="text-cyan-400" />
-            Este é o dinheiro real disponível em suas contas. Rendas e gastos atualizam automaticamente estes saldos.
-          </p>
         </div>
       ) : (
         <div className="bg-yellow-900/20 border-2 border-yellow-600/50 rounded-xl p-6">
@@ -392,29 +420,40 @@ export default function Dashboard({ userName, getGreeting }) {
 
       {/* Distribuição 50/30/20 */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-        <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-          <HiChartBar className="text-cyan-400" />
-          Distribuição {preferences.expenses_percent.toFixed(0)} / {preferences.entertainment_percent.toFixed(0)} / {preferences.investment_percent.toFixed(0)}
-        </h2>
-        <div className="space-y-4">
-          <Category
-            icon={<HiHome className="text-blue-400" />}
-            name={`Despesas Fixas (${preferences.expenses_percent.toFixed(0)}%)`}
-            ideal={summary.ideal_fixos}
-            real={summary.real_fixos}
-          />
-          <Category
-            icon={<HiSparkles className="text-purple-400" />}
-            name={`Lazer & Diversão (${preferences.entertainment_percent.toFixed(0)}%)`}
-            ideal={summary.ideal_lazer}
-            real={summary.real_lazer}
-          />
-          <Category
-            icon={<HiTrendingUp className="text-emerald-400" />}
-            name={`Investimentos (${preferences.investment_percent.toFixed(0)}%)`}
-            ideal={summary.ideal_invest}
-            real={summary.real_invest}
-          />
+        <button
+          onClick={() => toggleSection('distribuicao')}
+          className="w-full text-left hover:opacity-80 transition-opacity"
+        >
+          <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+            <HiChartBar className="text-cyan-400" />
+            Distribuição {preferences.expenses_percent.toFixed(0)} / {preferences.entertainment_percent.toFixed(0)} / {preferences.investment_percent.toFixed(0)}
+            <HiChevronDown className={`ml-auto text-xl transition-transform ${expandedSections.distribuicao ? 'rotate-0' : '-rotate-90'}`} />
+          </h2>
+        </button>
+        <div
+          className={`collapsible-panel ${expandedSections.distribuicao ? "open" : ""}`}
+          aria-hidden={!expandedSections.distribuicao}
+        >
+          <div className="space-y-4 pt-1">
+            <Category
+              icon={<HiHome className="text-blue-400" />}
+              name={`Despesas Fixas (${preferences.expenses_percent.toFixed(0)}%)`}
+              ideal={summary.ideal_fixos}
+              real={summary.real_fixos}
+            />
+            <Category
+              icon={<HiSparkles className="text-purple-400" />}
+              name={`Lazer & Diversão (${preferences.entertainment_percent.toFixed(0)}%)`}
+              ideal={summary.ideal_lazer}
+              real={summary.real_lazer}
+            />
+            <Category
+              icon={<HiTrendingUp className="text-emerald-400" />}
+              name={`Investimentos (${preferences.investment_percent.toFixed(0)}%)`}
+              ideal={summary.ideal_invest}
+              real={summary.real_invest}
+            />
+          </div>
         </div>
       </div>
 
@@ -438,12 +477,23 @@ export default function Dashboard({ userName, getGreeting }) {
       {/* Evolução Mensal */}
       {monthlyHistory.length > 0 && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-          <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-            <HiTrendingUp className="text-cyan-400" />
-            Evolução dos Últimos 12 Meses
-          </h2>
-          <ResponsiveContainer width="100%" height={350}>
-            <BarChart data={monthlyHistory} margin={{ top: 20, right: 30, left: 0, bottom: 50 }}>
+          <button
+            onClick={() => toggleSection('historico')}
+            className="w-full text-left hover:opacity-80 transition-opacity"
+          >
+            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+              <HiTrendingUp className="text-cyan-400" />
+              Evolução dos Últimos 12 Meses
+              <HiChevronDown className={`ml-auto text-xl transition-transform ${expandedSections.historico ? 'rotate-0' : '-rotate-90'}`} />
+            </h2>
+          </button>
+          <div
+            className={`collapsible-panel ${expandedSections.historico ? "open" : ""}`}
+            aria-hidden={!expandedSections.historico}
+          >
+            <div className="h-96">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlyHistory} margin={{ top: 20, right: 30, left: 0, bottom: 50 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
               <XAxis dataKey="month" stroke="rgb(209, 213, 219)" />
               <YAxis stroke="rgb(209, 213, 219)" />
@@ -467,8 +517,10 @@ export default function Dashboard({ userName, getGreeting }) {
               <Bar dataKey="income" fill="#10b981" name="Renda" />
               <Bar dataKey="expenses" fill="#ef4444" name="Gastos" />
               <Bar dataKey="balance" fill="#06b6d4" name="Saldo" />
-            </BarChart>
-          </ResponsiveContainer>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </div>
       )}
 
