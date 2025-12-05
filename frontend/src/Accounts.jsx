@@ -382,13 +382,10 @@ export default function Accounts() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-slate-200 mb-2">Valor</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg py-2.5 px-4"
+                  <CurrencyInput
+                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg py-2.5 px-4 focus:border-cyan-400 focus:outline-none"
                     value={transferForm.amount}
-                    onChange={(e) => setTransferForm({ ...transferForm, amount: e.target.value })}
+                    onChange={(val) => setTransferForm({ ...transferForm, amount: val })}
                     required
                   />
                 </div>
