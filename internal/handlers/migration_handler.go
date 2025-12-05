@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/edgar-lins/controle-financeiro/internal/middleware"
@@ -99,44 +100,19 @@ func (h *MigrationHandler) MigrateUnlinkedTransactions(w http.ResponseWriter, r 
 	}
 	incomesMigrated, _ := result.RowsAffected()
 
-	// Recalcula saldo da Carteira Geral
-	var totalIncomes, totalExpenses float64
-	err = tx.QueryRow(`
-		SELECT COALESCE(SUM(amount), 0)
-		FROM incomes
-		WHERE user_id = $1 AND account_id = $2
-	`, userID, defaultAccountID).Scan(&totalIncomes)
-	if err != nil {
-		http.Error(w, "Erro ao calcular rendas", http.StatusInternalServerError)
-		return
-	}
-
-	err = tx.QueryRow(`
-		SELECT COALESCE(SUM(amount), 0)
-		FROM expenses
-		WHERE user_id = $1 AND account_id = $2
-	`, userID, defaultAccountID).Scan(&totalExpenses)
-	if err != nil {
-		http.Error(w, "Erro ao calcular gastos", http.StatusInternalServerError)
-		return
-	}
-
-	newBalance := totalIncomes - totalExpenses
-
-	_, err = tx.Exec(`
-		UPDATE accounts
-		SET balance = $1
-		WHERE id = $2 AND user_id = $3
-	`, newBalance, defaultAccountID, userID)
-	if err != nil {
-		http.Error(w, "Erro ao atualizar saldo", http.StatusInternalServerError)
-		return
-	}
-
 	err = tx.Commit()
 	if err != nil {
 		http.Error(w, "Erro ao confirmar migração", http.StatusInternalServerError)
 		return
+	}
+
+	// Após a migração, recalcula o saldo da Carteira Geral
+	// (fora da transação para garantir que as transações linkadas já foram persistidas)
+	accountHandler = &AccountHandler{DB: h.DB}
+	err = accountHandler.RecalculateAccountBalance(defaultAccountID, userID)
+	if err != nil {
+		// Log mas não falha - as transações já foram migradas
+		fmt.Println("Aviso: erro ao recalcular saldo da Carteira Geral:", err)
 	}
 
 	response := map[string]interface{}{
@@ -144,7 +120,6 @@ func (h *MigrationHandler) MigrateUnlinkedTransactions(w http.ResponseWriter, r 
 		"expenses_migrated": expensesMigrated,
 		"incomes_migrated":  incomesMigrated,
 		"total_migrated":    expensesMigrated + incomesMigrated,
-		"new_balance":       newBalance,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

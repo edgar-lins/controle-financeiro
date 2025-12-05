@@ -306,20 +306,63 @@ export default function Dashboard({ userName, getGreeting }) {
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
-            {accounts.map((acc) => (
-              <div key={acc.id} className="bg-slate-800/50 border border-cyan-800/30 rounded-lg p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-cyan-300 text-xs font-medium uppercase">{acc.type}</p>
-                    <p className="text-white font-semibold mt-1">{acc.name}</p>
+            {accounts
+              .sort((a, b) => {
+                // Carteira Geral sempre primeiro
+                if (a.name === "Carteira Geral") return -1;
+                if (b.name === "Carteira Geral") return 1;
+                // Depois ordena alfabeticamente
+                return a.name.localeCompare(b.name);
+              })
+              .map((acc) => {
+                const isNegative = acc.balance < 0;
+                const isCarteiraGeral = acc.name === "Carteira Geral";
+                const isCarteiraComSaldo = isCarteiraGeral && acc.balance > 0;
+
+                return (
+                  <div
+                    key={acc.id}
+                    className={`rounded-lg p-3 relative ${
+                      isNegative
+                        ? "bg-red-900/20 border-2 border-red-500/60"
+                        : isCarteiraComSaldo
+                        ? "bg-gradient-to-br from-emerald-900/40 to-teal-900/40 border-2 border-emerald-500/60"
+                        : "bg-slate-800/50 border border-cyan-800/30"
+                    }`}
+                  >
+                    {isNegative && (
+                      <div className="absolute top-2 right-2 text-red-400">
+                        <HiExclamation className="text-lg" />
+                      </div>
+                    )}
+                    <div className="flex items-start justify-between gap-2 pr-6">
+                      <div>
+                        <p className="text-cyan-300 text-xs font-medium uppercase">{acc.type}</p>
+                        <p className="text-white font-semibold mt-1">{acc.name}</p>
+                      </div>
+                      {isCarteiraGeral && (
+                        <InfoIcon tooltip="A Carteira Geral agrupa transações sem uma conta específica. Novos gastos/rendas sem conta selecionada vão para lá automaticamente." />
+                      )}
+                    </div>
+                    <p
+                      className={`text-lg font-bold mt-2 ${
+                        isNegative
+                          ? "text-red-300"
+                          : isCarteiraComSaldo
+                          ? "text-emerald-300"
+                          : "text-cyan-100"
+                      }`}
+                    >
+                      {formatCurrencyBR(acc.balance)}
+                    </p>
+                    {isNegative && (
+                      <p className="text-red-300 text-xs mt-2">
+                        ⚠️ Saldo negativo - verifique suas transações
+                      </p>
+                    )}
                   </div>
-                  {acc.name === "Carteira Geral" && (
-                    <InfoIcon tooltip="A Carteira Geral agrupa transações sem uma conta específica. Novos gastos/rendas sem conta selecionada vão para lá automaticamente." />
-                  )}
-                </div>
-                <p className="text-cyan-100 text-lg font-bold mt-2">{formatCurrencyBR(acc.balance)}</p>
-              </div>
-            ))}
+                );
+              })}
           </div>
           <p className="text-cyan-300 text-xs mt-4 flex items-center gap-1">
             <HiCheckCircle className="text-cyan-400" />

@@ -54,6 +54,22 @@ func (h *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		acc.UserID = userID
+
+		// Recalcula o saldo dinamicamente baseado nas transações
+		var totalIncomes, totalExpenses float64
+		h.DB.QueryRow(`
+			SELECT COALESCE(SUM(amount), 0)
+			FROM incomes
+			WHERE user_id = $1 AND account_id = $2
+		`, userID, acc.ID).Scan(&totalIncomes)
+
+		h.DB.QueryRow(`
+			SELECT COALESCE(SUM(amount), 0)
+			FROM expenses
+			WHERE user_id = $1 AND account_id = $2
+		`, userID, acc.ID).Scan(&totalExpenses)
+
+		acc.Balance = totalIncomes - totalExpenses
 		accounts = append(accounts, acc)
 	}
 
@@ -98,7 +114,20 @@ func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.DB.Exec(`DELETE FROM accounts WHERE id = $1 AND user_id = $2`, id, userID)
+	// Verifica se é a Carteira Geral
+	var accountName string
+	err := h.DB.QueryRow(`SELECT name FROM accounts WHERE id = $1 AND user_id = $2`, id, userID).Scan(&accountName)
+	if err != nil {
+		http.Error(w, "Conta não encontrada", http.StatusNotFound)
+		return
+	}
+
+	if accountName == "Carteira Geral" {
+		http.Error(w, "Não é possível deletar a Carteira Geral", http.StatusForbidden)
+		return
+	}
+
+	_, err = h.DB.Exec(`DELETE FROM accounts WHERE id = $1 AND user_id = $2`, id, userID)
 	if err != nil {
 		http.Error(w, "Erro ao deletar conta", http.StatusInternalServerError)
 		return
@@ -135,4 +164,37 @@ func (h *AccountHandler) GetOrCreateDefaultAccount(userID int) (int64, error) {
 	}
 
 	return accountID, nil
+}
+
+// RecalculateAccountBalance recalcula o saldo de uma conta baseado em suas transações
+func (h *AccountHandler) RecalculateAccountBalance(accountID int64, userID int) error {
+	var totalIncomes, totalExpenses float64
+
+	err := h.DB.QueryRow(`
+		SELECT COALESCE(SUM(amount), 0)
+		FROM incomes
+		WHERE user_id = $1 AND account_id = $2
+	`, userID, accountID).Scan(&totalIncomes)
+	if err != nil {
+		return err
+	}
+
+	err = h.DB.QueryRow(`
+		SELECT COALESCE(SUM(amount), 0)
+		FROM expenses
+		WHERE user_id = $1 AND account_id = $2
+	`, userID, accountID).Scan(&totalExpenses)
+	if err != nil {
+		return err
+	}
+
+	newBalance := totalIncomes - totalExpenses
+
+	_, err = h.DB.Exec(`
+		UPDATE accounts
+		SET balance = $1
+		WHERE id = $2 AND user_id = $3
+	`, newBalance, accountID, userID)
+
+	return err
 }

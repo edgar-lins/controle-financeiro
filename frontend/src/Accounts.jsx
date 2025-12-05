@@ -99,6 +99,8 @@ export default function Accounts() {
       if (res.ok) {
         setToast({ show: true, message: "Conta removida!", type: "success" });
         fetchAccounts();
+      } else if (res.status === 403) {
+        setToast({ show: true, message: "Não é possível deletar a Carteira Geral", type: "error" });
       } else {
         setToast({ show: true, message: "Erro ao remover conta", type: "error" });
       }
@@ -127,7 +129,7 @@ export default function Accounts() {
 
       <div className="grid md:grid-cols-3 gap-6">
         {/* Form - Criar/Editar Conta */}
-        <div className="md:col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-6">
+        <div className="md:col-span-1 md:sticky md:top-6 md:self-start md:max-h-[calc(100vh-6rem)] overflow-y-auto bg-slate-900 border border-slate-800 rounded-xl p-6">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <MdAttachMoney className="text-cyan-400" /> 
             {editingId ? "Editar Conta" : "Adicionar Conta"}
@@ -188,35 +190,55 @@ export default function Accounts() {
 
           {accounts.length > 0 ? (
             <div className="grid grid-cols-1 gap-4">
-              {accounts.map((acc) => (
-                <div key={acc.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm hover:shadow-md transition duration-200">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-white">{acc.name}</h3>
-                      <p className="text-sm text-gray-400">{accountTypes[acc.type]}</p>
+              {accounts.map((acc) => {
+                const isNegative = acc.balance < 0;
+                return (
+                  <div 
+                    key={acc.id} 
+                    className={`border rounded-xl p-4 shadow-sm hover:shadow-md transition duration-200 ${
+                      isNegative
+                        ? "bg-red-900/20 border-red-500/60"
+                        : "bg-slate-900 border-slate-800"
+                    }`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-bold text-white">{acc.name}</h3>
+                        <p className="text-sm text-gray-400">{accountTypes[acc.type]}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => startEdit(acc)}
+                          className="text-slate-400 hover:text-slate-300 transition duration-200 flex items-center gap-1"
+                          title="Editar conta"
+                        >
+                          <HiPencil className="text-lg" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteModal({ isOpen: true, accountId: acc.id, accountName: acc.name })}
+                          disabled={acc.name === "Carteira Geral"}
+                          className={`transition duration-200 flex items-center gap-1 ${
+                            acc.name === "Carteira Geral"
+                              ? "text-gray-600 cursor-not-allowed opacity-50"
+                              : "text-red-400 hover:text-red-300"
+                          }`}
+                          title={acc.name === "Carteira Geral" ? "Não é possível deletar a Carteira Geral" : "Excluir conta"}
+                        >
+                          <HiTrash className="text-lg" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => startEdit(acc)}
-                        className="text-slate-400 hover:text-slate-300 transition duration-200 flex items-center gap-1"
-                        title="Editar conta"
-                      >
-                        <HiPencil className="text-lg" />
-                      </button>
-                      <button
-                        onClick={() => setDeleteModal({ isOpen: true, accountId: acc.id, accountName: acc.name })}
-                        className="text-red-400 hover:text-red-300 transition duration-200 flex items-center gap-1"
-                        title="Excluir conta"
-                      >
-                        <HiTrash className="text-lg" />
-                      </button>
+                    <div className="mt-3 pt-3 border-t border-slate-700">
+                      <p className={`text-2xl font-bold ${isNegative ? "text-red-300" : "text-slate-300"}`}>
+                        {formatCurrencyBR(acc.balance)}
+                      </p>
+                      {isNegative && (
+                        <p className="text-red-300 text-xs mt-2">⚠️ Saldo negativo</p>
+                      )}
                     </div>
                   </div>
-                  <div className="mt-3 pt-3 border-t border-slate-700">
-                    <p className="text-2xl font-bold text-slate-300">{formatCurrencyBR(acc.balance)}</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="bg-white/5 border-2 border-dashed border-white/20 rounded-lg p-12 text-center">
