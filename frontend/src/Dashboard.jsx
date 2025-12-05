@@ -10,6 +10,7 @@ import { PageHeader } from "./components/PageHeader";
 export default function Dashboard({ userName, getGreeting }) {
   const [summary, setSummary] = useState(null);
   const [monthlyHistory, setMonthlyHistory] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [month, setMonth] = useState("");
   const [year, setYear] = useState("");
@@ -70,9 +71,25 @@ export default function Dashboard({ userName, getGreeting }) {
       }
     }
 
+    async function fetchAccounts() {
+      try {
+        const token = localStorage.getItem("token");
+        const apiUrl = API_URL || "http://localhost:8080";
+        const res = await fetch(`${apiUrl}/accounts`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        setAccounts(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Erro ao buscar contas:", error);
+        setAccounts([]);
+      }
+    }
+
     fetchPreferences();
     fetchSummary();
     fetchMonthlyHistory();
+    fetchAccounts();
   }, [refreshKey, month, year]);
 
   if (loading)
@@ -186,6 +203,58 @@ export default function Dashboard({ userName, getGreeting }) {
           </div>
         </div>
       </div>
+
+      {/* Widget Patrimônio */}
+      {accounts.length > 0 ? (
+        <div className="bg-gradient-to-br from-cyan-900 to-blue-900 border border-cyan-700 rounded-xl p-6 shadow-lg">
+          <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+            <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+            Patrimônio Total
+          </h2>
+          <div className="flex items-end justify-between mb-4">
+            <div>
+              <p className="text-cyan-200 text-sm font-medium">Soma de todas as contas</p>
+              <p className="text-4xl font-bold text-white mt-2">
+                {formatCurrencyBR(accounts.reduce((sum, acc) => sum + acc.balance, 0))}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
+            {accounts.map((acc) => (
+              <div key={acc.id} className="bg-slate-800/50 border border-cyan-800/30 rounded-lg p-3">
+                <p className="text-cyan-300 text-xs font-medium uppercase">{acc.type}</p>
+                <p className="text-white font-semibold mt-1">{acc.name}</p>
+                <p className="text-cyan-100 text-lg font-bold mt-2">{formatCurrencyBR(acc.balance)}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-cyan-300 text-xs mt-4 flex items-center gap-1">
+            <HiCheckCircle className="text-cyan-400" />
+            Este é o dinheiro real disponível em suas contas. Rendas e gastos atualizam automaticamente estes saldos.
+          </p>
+        </div>
+      ) : (
+        <div className="bg-yellow-900/20 border-2 border-yellow-600/50 rounded-xl p-6">
+          <div className="flex items-start gap-3">
+            <HiExclamation className="text-yellow-500 text-2xl flex-shrink-0 mt-1" />
+            <div>
+              <h3 className="text-yellow-300 font-bold text-lg mb-2">💡 Dica: Cadastre suas contas!</h3>
+              <p className="text-yellow-200 text-sm mb-3">
+                Para um controle financeiro completo, cadastre suas contas (banco, carteira, poupança, etc). 
+                Assim você saberá exatamente onde está cada centavo e poderá acompanhar seu patrimônio total.
+              </p>
+              <a 
+                href="/accounts" 
+                className="inline-block bg-yellow-600 hover:bg-yellow-700 text-white font-semibold px-4 py-2 rounded-lg transition"
+              >
+                Criar Primeira Conta
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Distribuição 50/30/20 */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
