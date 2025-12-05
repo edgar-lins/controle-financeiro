@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"strconv"
 
 	"github.com/edgar-lins/controle-financeiro/internal/middleware"
 	"github.com/edgar-lins/controle-financeiro/internal/models"
@@ -25,21 +24,14 @@ func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	opening := acc.Opening
-	if opening == 0 {
-		opening = acc.Balance
-	}
-
-	query := `INSERT INTO accounts (user_id, name, type, balance, opening_balance) VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at`
-	err := h.DB.QueryRow(query, userID, acc.Name, acc.Type, opening, opening).Scan(&acc.ID, &acc.CreatedAt)
+	query := `INSERT INTO accounts (user_id, name, type, balance) VALUES ($1, $2, $3, $4) RETURNING id, created_at`
+	err := h.DB.QueryRow(query, userID, acc.Name, acc.Type, acc.Balance).Scan(&acc.ID, &acc.CreatedAt)
 	if err != nil {
 		http.Error(w, "Erro ao criar conta", http.StatusInternalServerError)
 		return
 	}
 
 	acc.UserID = userID
-	acc.Balance = opening
-	acc.Opening = opening
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(acc)
 }
@@ -48,7 +40,7 @@ func (h *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 	userIDVal := r.Context().Value(middleware.UserIDKey)
 	userID, _ := userIDVal.(int)
 
-	rows, err := h.DB.Query(`SELECT id, name, type, balance, opening_balance, created_at FROM accounts WHERE user_id = $1 ORDER BY created_at DESC`, userID)
+	rows, err := h.DB.Query(`SELECT id, name, type, balance, created_at FROM accounts WHERE user_id = $1 ORDER BY created_at DESC`, userID)
 	if err != nil {
 		http.Error(w, "Erro ao buscar contas", http.StatusInternalServerError)
 		return
@@ -58,45 +50,11 @@ func (h *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 	accounts := []models.Account{}
 	for rows.Next() {
 		var acc models.Account
-		if err := rows.Scan(&acc.ID, &acc.Name, &acc.Type, &acc.Balance, &acc.Opening, &acc.CreatedAt); err != nil {
+		if err := rows.Scan(&acc.ID, &acc.Name, &acc.Type, &acc.Balance, &acc.CreatedAt); err != nil {
 			http.Error(w, "Erro ao ler contas", http.StatusInternalServerError)
 			return
 		}
 		acc.UserID = userID
-
-		effectiveOpening := acc.Opening
-		if effectiveOpening == 0 {
-			effectiveOpening = acc.Balance
-		}
-
-		// Recalcula o saldo dinamicamente baseado nas transações
-		var totalIncomes, totalExpenses float64
-		h.DB.QueryRow(`
-			SELECT COALESCE(SUM(amount), 0)
-			FROM incomes
-			WHERE user_id = $1 AND account_id = $2
-		`, userID, acc.ID).Scan(&totalIncomes)
-
-		h.DB.QueryRow(`
-			SELECT COALESCE(SUM(amount), 0)
-			FROM expenses
-			WHERE user_id = $1 AND account_id = $2
-		`, userID, acc.ID).Scan(&totalExpenses)
-
-		var incomingTransfers, outgoingTransfers float64
-		h.DB.QueryRow(`
-			SELECT COALESCE(SUM(amount), 0)
-			FROM transfers
-			WHERE user_id = $1 AND to_account_id = $2
-		`, userID, acc.ID).Scan(&incomingTransfers)
-
-		h.DB.QueryRow(`
-			SELECT COALESCE(SUM(amount), 0)
-			FROM transfers
-			WHERE user_id = $1 AND from_account_id = $2
-		`, userID, acc.ID).Scan(&outgoingTransfers)
-
-		acc.Balance = (effectiveOpening + totalIncomes + incomingTransfers) - (totalExpenses + outgoingTransfers)
 		accounts = append(accounts, acc)
 	}
 
@@ -120,16 +78,9 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// When editing, only update opening_balance
-	// Balance will be recalculated from: opening + incomes - expenses + transfers
-	opening := acc.Opening
-	if opening == 0 && acc.Balance != 0 {
-		// Fallback: if opening not provided but balance is, use balance
-		opening = acc.Balance
-	}
-
-	query := `UPDATE accounts SET name = $1, type = $2, opening_balance = $3 WHERE id = $4 AND user_id = $5`
-	result, err := h.DB.Exec(query, acc.Name, acc.Type, opening, id, userID)
+	// Simply update name, type, and balance with the values the user provided
+	query := `UPDATE accounts SET name = $1, type = $2, balance = $3 WHERE id = $4 AND user_id = $5`
+	result, err := h.DB.Exec(query, acc.Name, acc.Type, acc.Balance, id, userID)
 	if err != nil {
 		log.Printf("update account exec error user=%d err=%v", userID, err)
 		http.Error(w, "Erro ao atualizar conta", http.StatusInternalServerError)
@@ -141,12 +92,6 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		log.Printf("update account no rows affected user=%d id=%s err=%v", userID, id, err)
 		http.Error(w, "Conta não encontrada", http.StatusNotFound)
 		return
-	}
-
-	if accID, parseErr := strconv.ParseInt(id, 10, 64); parseErr == nil {
-		if recalcErr := h.RecalculateAccountBalance(accID, userID); recalcErr != nil {
-			log.Printf("update account recalc error user=%d acc=%d err=%v", userID, accID, recalcErr)
-		}
 	}
 
 	w.WriteHeader(http.StatusOK)

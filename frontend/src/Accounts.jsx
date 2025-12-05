@@ -38,6 +38,7 @@ export default function Accounts() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
+      console.log("Contas recebidas do backend:", data);
       setAccounts(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro:", error);
@@ -46,12 +47,12 @@ export default function Accounts() {
   }
 
   function startEdit(account) {
+    console.log("Editando conta:", account);
     setEditingId(account.id);
     setForm({
       name: account.name,
       type: account.type,
       balance: account.balance.toString(),
-      opening_balance: account.opening_balance || 0,
     });
   }
 
@@ -70,26 +71,14 @@ export default function Accounts() {
         ? `${apiUrl}/accounts/update?id=${editingId}`
         : `${apiUrl}/accounts`;
       
-      let payload;
-      if (editingId) {
-        // When editing, only update the opening_balance
-        // Backend will recalculate actual balance from: opening + incomes - expenses + transfers
-        const newOpening = parseFloat(form.balance) || 0;
-        payload = {
-          name: form.name,
-          type: form.type,
-          opening_balance: newOpening,
-        };
-      } else {
-        // When creating new account
-        const initialBalance = parseFloat(form.balance) || 0;
-        payload = {
-          name: form.name,
-          type: form.type,
-          opening_balance: initialBalance,
-          balance: initialBalance,
-        };
-      }
+      const balance = parseFloat(form.balance) || 0;
+      const payload = {
+        name: form.name,
+        type: form.type,
+        balance: balance,
+      };
+      
+      console.log("Enviando payload:", payload);
       
       const res = await fetch(url, {
         method: editingId ? "PUT" : "POST",
@@ -104,7 +93,7 @@ export default function Accounts() {
         setToast({ show: true, message: editingId ? "Conta atualizada!" : "Conta adicionada!", type: "success" });
         setForm({ name: "", type: "corrente", balance: "" });
         setEditingId(null);
-        // Small delay to ensure backend has recalculated balance
+        // Refresh accounts list
         setTimeout(() => fetchAccounts(), 200);
       } else {
         setToast({ show: true, message: editingId ? "Erro ao atualizar conta" : "Erro ao adicionar conta", type: "error" });
