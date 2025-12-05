@@ -50,7 +50,8 @@ export default function Accounts() {
     setForm({
       name: account.name,
       type: account.type,
-      balance: (account.opening_balance ?? account.balance)?.toString() ?? "",
+      balance: account.balance.toString(),
+      opening_balance: account.opening_balance || 0,
     });
   }
 
@@ -69,17 +70,37 @@ export default function Accounts() {
         ? `${apiUrl}/accounts/update?id=${editingId}`
         : `${apiUrl}/accounts`;
       
+      let payload;
+      if (editingId) {
+        const editingAccount = accounts.find(a => a.id === editingId);
+        const currentBalance = editingAccount?.balance || 0;
+        const currentOpening = editingAccount?.opening_balance || 0;
+        const desiredBalance = parseFloat(form.balance) || 0;
+        const balanceDiff = desiredBalance - currentBalance;
+        const newOpening = currentOpening + balanceDiff;
+        
+        payload = {
+          name: form.name,
+          type: form.type,
+          balance: desiredBalance,
+          opening_balance: newOpening,
+        };
+      } else {
+        payload = {
+          name: form.name,
+          type: form.type,
+          balance: parseFloat(form.balance) || 0,
+          opening_balance: parseFloat(form.balance) || 0,
+        };
+      }
+      
       const res = await fetch(url, {
         method: editingId ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          ...form,
-          balance: parseFloat(form.balance) || 0,
-          opening_balance: parseFloat(form.balance) || 0,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {

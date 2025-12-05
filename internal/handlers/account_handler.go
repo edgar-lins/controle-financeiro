@@ -125,8 +125,8 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		opening = acc.Balance
 	}
 
-	query := `UPDATE accounts SET name = $1, type = $2, opening_balance = $3, balance = $4 WHERE id = $5 AND user_id = $6`
-	_, err := h.DB.Exec(query, acc.Name, acc.Type, opening, opening, id, userID)
+	query := `UPDATE accounts SET name = $1, type = $2, opening_balance = $3 WHERE id = $4 AND user_id = $5`
+	_, err := h.DB.Exec(query, acc.Name, acc.Type, opening, id, userID)
 	if err != nil {
 		http.Error(w, "Erro ao atualizar conta", http.StatusInternalServerError)
 		return
