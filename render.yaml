@@ -5,6 +5,8 @@ services:
     buildCommand: go mod download && go build -o bin/api cmd/api/main.go
     startCommand: ./bin/api
     envVars:
+      - key: ENVIRONMENT
+        value: production
       - key: PORT
         value: 8080
       - key: DATABASE_URL
@@ -13,8 +15,8 @@ services:
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
-      - key: GO_ENV
-        value: production
+      - key: ALLOWED_ORIGINS
+        value: https://controle-financeiro-kohl.vercel.app,https://seu-dominio-customizado.com
 
 databases:
   - name: controle-financeiro-db

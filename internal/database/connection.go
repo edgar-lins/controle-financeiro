@@ -11,12 +11,21 @@ import (
 )
 
 func Connect() *sql.DB {
-	// Tenta carregar .env (apenas para desenvolvimento local)
-	_ = godotenv.Load()
+	// Carregar variáveis de ambiente
+	env := os.Getenv("ENVIRONMENT")
+	if env == "" {
+		env = "development"
+	}
+
+	// Tenta carregar .env baseado no ambiente
+	if env == "development" {
+		_ = godotenv.Load(".env.development")
+	}
+	_ = godotenv.Load() // fallback para .env
 
 	// Verifica se existe DATABASE_URL (Render/produção)
 	databaseURL := os.Getenv("DATABASE_URL")
-	
+
 	var psqlInfo string
 	if databaseURL != "" {
 		// Usar DATABASE_URL do Render

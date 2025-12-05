@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/edgar-lins/controle-financeiro/internal/database"
 	"github.com/edgar-lins/controle-financeiro/internal/routes"
@@ -12,17 +14,23 @@ import (
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
-		
-		// Permitir localhost para desenvolvimento
-		if origin == "http://localhost:5173" || 
-		   origin == "http://localhost:3000" ||
-		   origin == "http://localhost:8080" {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-		} else if origin != "" {
-			// Permitir qualquer origem (para produção/Vercel)
-			w.Header().Set("Access-Control-Allow-Origin", "*")
+
+		// Obter origens permitidas do ambiente
+		allowedOrigins := os.Getenv("ALLOWED_ORIGINS")
+		if allowedOrigins == "" {
+			// Fallback para localhost em desenvolvimento
+			allowedOrigins = "http://localhost:5173,http://localhost:3000,http://localhost:8080"
 		}
-		
+
+		// Verificar se a origem está na lista de permitidas
+		origins := strings.Split(allowedOrigins, ",")
+		for _, allowed := range origins {
+			if strings.TrimSpace(allowed) == origin {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				break
+			}
+		}
+
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -37,6 +45,19 @@ func corsMiddleware(next http.Handler) http.Handler {
 }
 
 func main() {
+	// Obter configurações do ambiente
+	env := os.Getenv("ENVIRONMENT")
+	if env == "" {
+		env = "development"
+	}
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	fmt.Printf("🚀 Iniciando servidor em modo: %s\n", env)
+
 	db := database.Connect()
 	defer db.Close()
 
@@ -44,6 +65,6 @@ func main() {
 
 	handler := corsMiddleware(http.DefaultServeMux)
 
-	fmt.Println("Servidor iniciado em http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", handler))
+	fmt.Printf("✅ Servidor rodando em http://localhost:%s\n", port)
+	log.Fatal(http.ListenAndServe(":"+port, handler))
 }
