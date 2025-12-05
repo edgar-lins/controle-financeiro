@@ -16,17 +16,18 @@ type SummaryHandler struct {
 }
 
 type Summary struct {
-	Mes           string  `json:"mes"`
-	Ano           int     `json:"ano"`
-	RendaTotal    float64 `json:"renda_total"`
-	GastoTotal    float64 `json:"gasto_total"`
-	IdealFixos    float64 `json:"ideal_fixos"`
-	IdealLazer    float64 `json:"ideal_lazer"`
-	IdealInvest   float64 `json:"ideal_invest"`
-	RealFixos     float64 `json:"real_fixos"`
-	RealLazer     float64 `json:"real_lazer"`
-	RealInvest    float64 `json:"real_invest"`
-	SaldoRestante float64 `json:"saldo_restante"`
+	Mes             string  `json:"mes"`
+	Ano             int     `json:"ano"`
+	RendaTotal      float64 `json:"renda_total"`
+	GastoTotal      float64 `json:"gasto_total"`
+	IdealFixos      float64 `json:"ideal_fixos"`
+	IdealLazer      float64 `json:"ideal_lazer"`
+	IdealInvest     float64 `json:"ideal_invest"`
+	RealFixos       float64 `json:"real_fixos"`
+	RealLazer       float64 `json:"real_lazer"`
+	RealInvest      float64 `json:"real_invest"`
+	SaldoRestante   float64 `json:"saldo_restante"`
+	PatrimonioTotal float64 `json:"patrimonio_total"`
 }
 
 type MonthlyData struct {
@@ -189,18 +190,41 @@ func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Erro ao buscar preferências:", err)
 	}
 
+	// Calcular patrimônio total (soma de TODAS as contas)
+	var patrimonioTotal float64
+	err = h.DB.QueryRow(`
+		SELECT COALESCE(SUM(balance), 0)
+		FROM accounts
+		WHERE user_id = $1
+	`, userID).Scan(&patrimonioTotal)
+	if err != nil {
+		fmt.Println("Erro ao calcular patrimônio total:", err)
+	}
+
+	// Calcular saldo restante (apenas contas corrente e cartao)
+	var saldoRestante float64
+	err = h.DB.QueryRow(`
+		SELECT COALESCE(SUM(balance), 0)
+		FROM accounts
+		WHERE user_id = $1 AND type IN ('corrente', 'cartao')
+	`, userID).Scan(&saldoRestante)
+	if err != nil {
+		fmt.Println("Erro ao calcular saldo restante:", err)
+	}
+
 	summary := Summary{
-		Mes:           now.Month().String(),
-		Ano:           year,
-		RendaTotal:    totalIncome,
-		GastoTotal:    totalExpenses,
-		IdealFixos:    totalIncome * (expensesPercent / 100),
-		IdealLazer:    totalIncome * (entertainmentPercent / 100),
-		IdealInvest:   totalIncome * (investmentPercent / 100),
-		RealFixos:     realFixos,
-		RealLazer:     realLazer,
-		RealInvest:    realInvest,
-		SaldoRestante: totalIncome - (realFixos + realLazer + realInvest),
+		Mes:             now.Month().String(),
+		Ano:             year,
+		RendaTotal:      totalIncome,
+		GastoTotal:      totalExpenses,
+		IdealFixos:      totalIncome * (expensesPercent / 100),
+		IdealLazer:      totalIncome * (entertainmentPercent / 100),
+		IdealInvest:     totalIncome * (investmentPercent / 100),
+		RealFixos:       realFixos,
+		RealLazer:       realLazer,
+		RealInvest:      realInvest,
+		SaldoRestante:   saldoRestante,
+		PatrimonioTotal: patrimonioTotal,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

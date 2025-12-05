@@ -1,6 +1,10 @@
 // Configuração centralizada da API
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-const ENVIRONMENT = import.meta.env.VITE_ENVIRONMENT || 'development';
+const isDev = import.meta.env.DEV;
+// Em modo dev sempre força localhost para evitar apontar acidentalmente para a API do Render
+const API_URL = isDev
+  ? (import.meta.env.VITE_API_URL || 'http://localhost:8080')
+  : (import.meta.env.VITE_API_URL || 'https://controle-financeiro-api-7oc0.onrender.com');
+const ENVIRONMENT = isDev ? 'development' : (import.meta.env.VITE_ENVIRONMENT || 'production');
 
 // Log da configuração em desenvolvimento
 if (ENVIRONMENT === 'development') {

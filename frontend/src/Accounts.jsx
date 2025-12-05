@@ -71,7 +71,12 @@ export default function Accounts() {
         ? `${apiUrl}/accounts/update?id=${editingId}`
         : `${apiUrl}/accounts`;
       
-      const balance = parseFloat(form.balance) || 0;
+      // Normaliza o valor para número, removendo separadores e trocando vírgula por ponto
+      const rawBalance = String(form.balance ?? "");
+      const normalizedBalance = rawBalance.replace(/\./g, "").replace(",", ".");
+      const balance = normalizedBalance === "" || normalizedBalance === "."
+        ? 0
+        : parseFloat(normalizedBalance);
       const payload = {
         name: form.name,
         type: form.type,

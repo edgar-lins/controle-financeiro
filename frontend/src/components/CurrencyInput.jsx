@@ -23,6 +23,15 @@ export function CurrencyInput({ value, onChange, ...props }) {
       input = parts[0] + "," + parts.slice(1).join("");
     }
     setLocalValue(input);
+
+    // Atualiza o valor numérico imediatamente para não depender do blur
+    const normalized = input.replace(",", ".");
+    const numValue = parseFloat(normalized);
+    if (!isNaN(numValue)) {
+      onChange(numValue.toString());
+    } else if (input === "") {
+      onChange("");
+    }
   };
 
   const handleBlur = (e) => {
