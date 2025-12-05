@@ -226,7 +226,7 @@ export default function Dashboard({ userName, getGreeting }) {
             <label className="block text-sm font-medium text-gray-300 mb-2">Mês</label>
             <div className="relative">
               <select
-                className="bg-slate-700 border border-slate-600 text-white rounded-lg p-2 pr-12 w-40 focus:border-cyan-400 focus:outline-none appearance-none cursor-pointer"
+                className="bg-gradient-to-br from-slate-800 to-slate-700 border border-slate-600 text-white rounded-lg py-2 pl-3 pr-12 w-40 appearance-none focus:border-cyan-400 focus:outline-none focus:shadow-[0_0_0_2px_rgba(34,211,238,0.25)] transition"
                 value={month}
                 onChange={(e) => setMonth(e.target.value)}
               >
@@ -251,7 +251,7 @@ export default function Dashboard({ userName, getGreeting }) {
             <label className="block text-sm font-medium text-gray-300 mb-2">Ano</label>
             <div className="relative">
               <select
-                className="bg-slate-700 border border-slate-600 text-white rounded-lg p-2 pr-12 w-32 focus:border-cyan-400 focus:outline-none appearance-none cursor-pointer"
+                className="bg-gradient-to-br from-slate-800 to-slate-700 border border-slate-600 text-white rounded-lg py-2 pl-3 pr-12 w-32 appearance-none focus:border-cyan-400 focus:outline-none focus:shadow-[0_0_0_2px_rgba(34,211,238,0.25)] transition"
                 size="1"
                 value={year}
                 onChange={(e) => setYear(e.target.value)}
