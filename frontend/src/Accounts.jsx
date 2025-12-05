@@ -107,7 +107,8 @@ export default function Accounts() {
         setToast({ show: true, message: editingId ? "Conta atualizada!" : "Conta adicionada!", type: "success" });
         setForm({ name: "", type: "corrente", balance: "" });
         setEditingId(null);
-        fetchAccounts();
+        // Small delay to ensure backend has recalculated balance
+        setTimeout(() => fetchAccounts(), 200);
       } else {
         setToast({ show: true, message: editingId ? "Erro ao atualizar conta" : "Erro ao adicionar conta", type: "error" });
       }
