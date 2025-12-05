@@ -33,6 +33,21 @@ const paymentOptions = [
   { value: "vale", label: "VR/VA", icon: <HiCreditCard className="text-pink-300" /> },
 ];
 
+const monthNames = [
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
+];
+
 // Normalizar nome de forma de pagamento para exibição
 const getPaymentMethodLabel = (value) => {
   const option = paymentOptions.find(opt => opt.value === value);
@@ -217,8 +232,8 @@ export default function Expenses() {
               onChange={(e) => setFilterMonth(e.target.value)}
             >
               <option value={defaultMonth}>Atual</option>
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
-                <option key={m} value={m}>{m}</option>
+              {monthNames.map((name, idx) => (
+                <option key={name} value={idx + 1}>{name}</option>
               ))}
             </select>
           </div>
