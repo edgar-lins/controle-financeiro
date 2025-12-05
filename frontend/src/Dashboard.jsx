@@ -3,6 +3,7 @@ import { useSummary } from "./SummaryContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { HiChartBar, HiHome, HiSparkles, HiTrendingUp, HiCheckCircle, HiExclamation, HiChevronDown } from "react-icons/hi";
 import { formatCurrencyBR } from "./utils/format";
+import API_URL from "./config/api";
 import { ExportData } from "./components/ExportData";
 import { PageHeader } from "./components/PageHeader";
 
@@ -23,7 +24,7 @@ export default function Dashboard({ userName, getGreeting }) {
     async function fetchPreferences() {
       try {
         const token = localStorage.getItem("token");
-        const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+        const apiUrl = API_URL || "http://localhost:8080";
         const res = await fetch(`${apiUrl}/preferences`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -40,7 +41,7 @@ export default function Dashboard({ userName, getGreeting }) {
         const params = new URLSearchParams();
         if (month) params.set("month", String(month));
         if (year) params.set("year", String(year));
-        const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+        const apiUrl = API_URL || "http://localhost:8080";
         const url = `${apiUrl}/summary${params.toString() ? `?${params.toString()}` : ""}`;
         const token = localStorage.getItem("token");
         const res = await fetch(url, {
@@ -58,7 +59,7 @@ export default function Dashboard({ userName, getGreeting }) {
     async function fetchMonthlyHistory() {
       try {
         const token = localStorage.getItem("token");
-        const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+        const apiUrl = API_URL || "http://localhost:8080";
         const res = await fetch(`${apiUrl}/summary/history`, {
           headers: { Authorization: `Bearer ${token}` },
         });

@@ -174,14 +174,29 @@ func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 		AND user_id = $3
 	`, month, year, userID).Scan(&realInvest)
 
+	// Buscar preferências do usuário
+	var expensesPercent, entertainmentPercent, investmentPercent float64
+	expensesPercent, entertainmentPercent, investmentPercent = 50, 30, 20 // padrão
+
+	err = h.DB.QueryRow(`
+		SELECT expenses_percent, entertainment_percent, investment_percent
+		FROM user_preferences
+		WHERE user_id = $1
+	`, userID).Scan(&expensesPercent, &entertainmentPercent, &investmentPercent)
+
+	// Se não encontrar preferências, usa valores padrão (já definidos acima)
+	if err != nil && err != sql.ErrNoRows {
+		fmt.Println("Erro ao buscar preferências:", err)
+	}
+
 	summary := Summary{
 		Mes:           now.Month().String(),
 		Ano:           year,
 		RendaTotal:    totalIncome,
 		GastoTotal:    totalExpenses,
-		IdealFixos:    totalIncome * 0.5,
-		IdealLazer:    totalIncome * 0.3,
-		IdealInvest:   totalIncome * 0.2,
+		IdealFixos:    totalIncome * (expensesPercent / 100),
+		IdealLazer:    totalIncome * (entertainmentPercent / 100),
+		IdealInvest:   totalIncome * (investmentPercent / 100),
 		RealFixos:     realFixos,
 		RealLazer:     realLazer,
 		RealInvest:    realInvest,

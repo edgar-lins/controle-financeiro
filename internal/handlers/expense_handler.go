@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/edgar-lins/controle-financeiro/internal/middleware"
@@ -21,15 +23,37 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var expense models.Expense
-	err := json.NewDecoder(r.Body).Decode(&expense)
-	if err != nil {
+	var req struct {
+		Description   string  `json:"description"`
+		Amount        float64 `json:"amount"`
+		Category      string  `json:"category"`
+		PaymentMethod string  `json:"payment_method"`
+		Date          string  `json:"date"`
+		AccountID     *int64  `json:"account_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Erro ao ler corpo da requisição", http.StatusBadRequest)
 		return
 	}
 
-	if expense.Date.IsZero() {
-		expense.Date = time.Now()
+	expenseDate := time.Now().UTC()
+	if strings.TrimSpace(req.Date) != "" {
+		parsed, err := time.Parse("2006-01-02", req.Date)
+		if err != nil {
+			http.Error(w, "Data inválida, use YYYY-MM-DD", http.StatusBadRequest)
+			return
+		}
+		expenseDate = parsed
+	}
+
+	expense := models.Expense{
+		Description:   req.Description,
+		Amount:        req.Amount,
+		Category:      req.Category,
+		PaymentMethod: req.PaymentMethod,
+		Date:          expenseDate,
+		AccountID:     req.AccountID,
 	}
 
 	userIDVal := r.Context().Value(middleware.UserIDKey)
@@ -84,7 +108,27 @@ func (h *ExpenseHandler) GetExpenses(w http.ResponseWriter, r *http.Request) {
 
 	userIDVal := r.Context().Value(middleware.UserIDKey)
 	userID, _ := userIDVal.(int)
-	rows, err := h.DB.Query(`SELECT id, description, amount, category, payment_method, date, account_id FROM expenses WHERE user_id = $1 ORDER BY date DESC`, userID)
+	monthParam := r.URL.Query().Get("month")
+	yearParam := r.URL.Query().Get("year")
+
+	baseQuery := `SELECT id, description, amount, category, payment_method, date, account_id FROM expenses WHERE user_id = $1`
+	args := []interface{}{userID}
+
+	if monthParam != "" {
+		baseQuery += " AND EXTRACT(MONTH FROM date) = $" + strconv.Itoa(len(args)+1)
+		monthVal, _ := strconv.Atoi(monthParam)
+		args = append(args, monthVal)
+	}
+
+	if yearParam != "" {
+		baseQuery += " AND EXTRACT(YEAR FROM date) = $" + strconv.Itoa(len(args)+1)
+		yearVal, _ := strconv.Atoi(yearParam)
+		args = append(args, yearVal)
+	}
+
+	baseQuery += " ORDER BY date DESC"
+
+	rows, err := h.DB.Query(baseQuery, args...)
 	if err != nil {
 		http.Error(w, "Erro ao buscar gastos no banco", http.StatusInternalServerError)
 		fmt.Println("Erro:", err)
@@ -122,11 +166,37 @@ func (h *ExpenseHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 	userIDVal := r.Context().Value(middleware.UserIDKey)
 	userID, _ := userIDVal.(int)
 
-	var expense models.Expense
-	err := json.NewDecoder(r.Body).Decode(&expense)
-	if err != nil {
+	var req struct {
+		Description   string  `json:"description"`
+		Amount        float64 `json:"amount"`
+		Category      string  `json:"category"`
+		PaymentMethod string  `json:"payment_method"`
+		Date          string  `json:"date"`
+		AccountID     *int64  `json:"account_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Erro ao ler corpo da requisição", http.StatusBadRequest)
 		return
+	}
+
+	expenseDate := time.Now().UTC()
+	if strings.TrimSpace(req.Date) != "" {
+		parsed, err := time.Parse("2006-01-02", req.Date)
+		if err != nil {
+			http.Error(w, "Data inválida, use YYYY-MM-DD", http.StatusBadRequest)
+			return
+		}
+		expenseDate = parsed
+	}
+
+	expense := models.Expense{
+		Description:   req.Description,
+		Amount:        req.Amount,
+		Category:      req.Category,
+		PaymentMethod: req.PaymentMethod,
+		Date:          expenseDate,
+		AccountID:     req.AccountID,
 	}
 
 	// Start transaction
@@ -147,8 +217,8 @@ func (h *ExpenseHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update expense
-	query := `UPDATE expenses SET description = $1, amount = $2, category = $3, payment_method = $4, account_id = $5 WHERE id = $6 AND user_id = $7`
-	_, err = tx.Exec(query, expense.Description, expense.Amount, expense.Category, expense.PaymentMethod, expense.AccountID, id, userID)
+	query := `UPDATE expenses SET description = $1, amount = $2, category = $3, payment_method = $4, date = $5, account_id = $6 WHERE id = $7 AND user_id = $8`
+	_, err = tx.Exec(query, expense.Description, expense.Amount, expense.Category, expense.PaymentMethod, expense.Date, expense.AccountID, id, userID)
 	if err != nil {
 		http.Error(w, "Erro ao atualizar gasto", http.StatusInternalServerError)
 		fmt.Println("Erro:", err)

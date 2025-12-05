@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HiCheckCircle, HiXCircle, HiHome, HiSparkles, HiTrendingUp, HiChartBar } from "react-icons/hi";
 import { Toast } from "./components/Toast";
+import { useSummary } from "./SummaryContext";
 
 export default function Settings() {
   const navigate = useNavigate();
+  const { refreshSummary } = useSummary();
   const [preferences, setPreferences] = useState({
     expenses_percent: 50,
     entertainment_percent: 30,
@@ -62,6 +64,7 @@ export default function Settings() {
 
       if (res.ok) {
         setToast({ show: true, message: "Preferências atualizadas com sucesso!", type: "success" });
+        refreshSummary();
         setTimeout(() => navigate("/"), 1500);
       } else {
         const error = await res.text();

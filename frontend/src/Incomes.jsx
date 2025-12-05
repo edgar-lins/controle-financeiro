@@ -7,12 +7,27 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import "./styles/datepicker.css";
 import { formatCurrencyBR } from "./utils/format";
+import API_URL from "./config/api";
 import { CurrencyInput } from "./components/CurrencyInput";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { Toast } from "./components/Toast";
 import { PageHeader } from "./components/PageHeader";
 
+// Normalize dates from API (with or without time component)
+const parseDate = (value) => {
+  if (!value) return null;
+  try {
+    return value.includes("T") ? new Date(value) : new Date(`${value}T00:00:00`);
+  } catch (e) {
+    return null;
+  }
+};
+
 export default function Incomes() {
+  const now = new Date();
+  const defaultMonth = String(now.getMonth() + 1);
+  const defaultYear = String(now.getFullYear());
+
   const [form, setForm] = useState({
     description: "",
     amount: "",
@@ -27,9 +42,15 @@ export default function Incomes() {
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, incomeId: null, incomeDesc: "" });
   const { refreshSummary } = useSummary();
 
+  // 🔹 Filtros
+  const [filterMonth, setFilterMonth] = useState(defaultMonth);
+  const [filterYear, setFilterYear] = useState(defaultYear);
+  const [showAll, setShowAll] = useState(false);
+
   function startEdit(income) {
     setEditingId(income.id);
-    const dateStr = income.date ? new Date(income.date).toISOString().split('T')[0] : "";
+    const parsed = parseDate(income.date);
+    const dateStr = parsed ? parsed.toISOString().split('T')[0] : "";
     setForm({
       description: income.description,
       amount: income.amount.toString(),
@@ -47,7 +68,7 @@ export default function Incomes() {
   async function fetchAccounts() {
     try {
       const token = localStorage.getItem("token");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const apiUrl = API_URL || "http://localhost:8080";
       const res = await fetch(`${apiUrl}/accounts`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -64,8 +85,14 @@ export default function Incomes() {
   async function fetchIncomes() {
     try {
       const token = localStorage.getItem("token");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
-      const res = await fetch(`${apiUrl}/incomes`, {
+      const apiUrl = API_URL || "http://localhost:8080";
+      const params = new URLSearchParams();
+      if (!showAll) {
+        if (filterMonth) params.set("month", String(filterMonth));
+        if (filterYear) params.set("year", String(filterYear));
+      }
+
+      const res = await fetch(`${apiUrl}/incomes${params.toString() ? `?${params.toString()}` : ""}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Erro ao buscar rendas");
@@ -83,10 +110,12 @@ export default function Incomes() {
 
     try {
       const token = localStorage.getItem("token");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const apiUrl = API_URL || "http://localhost:8080";
       const url = editingId
         ? `${apiUrl}/incomes/update?id=${editingId}`
         : `${apiUrl}/incomes`;
+
+      const payloadDate = form.date || new Date().toISOString().split("T")[0];
       
       const res = await fetch(url, {
         method: editingId ? "PUT" : "POST",
@@ -97,7 +126,7 @@ export default function Incomes() {
         body: JSON.stringify({
           ...form,
           amount: parseFloat(form.amount),
-          date: form.date ? new Date(form.date).toISOString() : new Date().toISOString(),
+          date: payloadDate,
           account_id: form.account_id ? parseInt(form.account_id) : null,
         }),
       });
@@ -122,7 +151,7 @@ export default function Incomes() {
   async function deleteIncome(id) {
     try {
       const token = localStorage.getItem("token");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const apiUrl = API_URL || "http://localhost:8080";
       const res = await fetch(`${apiUrl}/incomes/delete?id=${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
@@ -146,7 +175,7 @@ export default function Incomes() {
   useEffect(() => {
     fetchIncomes();
     fetchAccounts();
-  }, []);
+  }, [filterMonth, filterYear, showAll]);
 
   return (
     <div className="space-y-6">
@@ -159,6 +188,58 @@ export default function Incomes() {
       />
 
       <div className="grid md:grid-cols-3 gap-6">
+        {/* Filtros */}
+        <div className="md:col-span-3 bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-wrap gap-3 items-end shadow-inner shadow-black/20">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Mês</label>
+            <select
+              className="bg-gradient-to-br from-slate-800 to-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-emerald-400 focus:outline-none focus:shadow-[0_0_0_2px_rgba(16,185,129,0.25)] transition"
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
+            >
+              <option value={defaultMonth}>Atual</option>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Ano</label>
+            <select
+              className="bg-gradient-to-br from-slate-800 to-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-emerald-400 focus:outline-none focus:shadow-[0_0_0_2px_rgba(16,185,129,0.25)] transition"
+              value={filterYear}
+              onChange={(e) => setFilterYear(e.target.value)}
+            >
+              <option value={defaultYear}>Atual</option>
+              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="relative inline-flex items-center cursor-pointer select-none">
+              <input
+                id="showAllIncomes"
+                type="checkbox"
+                className="sr-only peer"
+                checked={showAll}
+                onChange={(e) => setShowAll(e.target.checked)}
+              />
+              <span className="w-10 h-6 bg-slate-700 border border-slate-600 rounded-full peer-checked:bg-emerald-600 peer-checked:border-emerald-500 transition-all shadow-inner" />
+              <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full peer-checked:translate-x-4 transition-transform shadow" />
+              <span className="ml-3 text-sm text-gray-300">Ver todos</span>
+            </label>
+
+            <button
+              type="button"
+              className="bg-gradient-to-r from-slate-700 to-slate-600 hover:from-emerald-600 hover:to-emerald-500 text-white px-4 py-2 rounded-lg font-semibold transition shadow-md hover:shadow-emerald-500/20"
+              onClick={() => { setFilterMonth(defaultMonth); setFilterYear(defaultYear); setShowAll(false); }}
+            >
+              Limpar
+            </button>
+          </div>
+        </div>
+
         {/* Form */}
         <div className="md:col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-6 sticky top-24">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
@@ -208,7 +289,7 @@ export default function Incomes() {
               <label className="block text-sm font-medium text-gray-300 mb-1">Data</label>
               <div className="relative flex items-center">
                 <DatePicker
-                  selected={form.date ? new Date(form.date) : null}
+                  selected={form.date ? parseDate(form.date) : null}
                   onChange={(date) => {
                     if (date) {
                       const dateStr = date.toISOString().split('T')[0];
@@ -254,14 +335,16 @@ export default function Incomes() {
                       <h3 className="text-lg font-bold text-white">{inc.description}</h3>
                       <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-gray-400">
                         {/* Data */}
-                        {inc.date
-                          ? new Date(inc.date).toLocaleDateString("pt-BR", { 
-                              weekday: "short", 
-                              year: "numeric", 
-                              month: "short", 
-                              day: "numeric" 
-                            })
-                          : "Data não informada"}
+                        {(() => {
+                          const parsed = parseDate(inc.date);
+                          if (!parsed) return "Data não informada";
+                          return parsed.toLocaleDateString("pt-BR", { 
+                            weekday: "short", 
+                            year: "numeric", 
+                            month: "short", 
+                            day: "numeric" 
+                          });
+                        })()}
                         {/* Conta utilizada */}
                         {inc.account_id && (() => {
                           const acc = accounts.find(a => a.id === parseInt(inc.account_id));

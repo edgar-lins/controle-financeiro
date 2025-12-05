@@ -1,24 +1,55 @@
 import { useEffect, useState } from "react";
 import { useSummary } from "./SummaryContext";
-import { HiTrash, HiCalendar, HiPencil } from "react-icons/hi";
+import { HiTrash, HiCalendar, HiPencil, HiLightningBolt, HiCreditCard, HiCash } from "react-icons/hi";
 import { MdAttachMoney } from "react-icons/md";
 import { MdAccountBalanceWallet } from "react-icons/md";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import "./styles/datepicker.css";
 import { formatCurrencyBR } from "./utils/format";
+import API_URL from "./config/api";
 import { CategorySelect } from "./components/CategorySelect";
 import { CurrencyInput } from "./components/CurrencyInput";
 import { PageHeader } from "./components/PageHeader";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { Toast } from "./components/Toast";
 
+// Normalize date strings coming from API (with or without time)
+const parseDate = (value) => {
+  if (!value) return null;
+  try {
+    return value.includes("T") ? new Date(value) : new Date(`${value}T00:00:00`);
+  } catch (e) {
+    return null;
+  }
+};
+
+const paymentOptions = [
+  { value: "pix", label: "Pix", icon: <HiLightningBolt className="text-lime-300" /> },
+  { value: "debito", label: "Débito", icon: <HiCreditCard className="text-sky-300" /> },
+  { value: "credito", label: "Crédito", icon: <HiCreditCard className="text-purple-300" /> },
+  { value: "dinheiro", label: "Dinheiro", icon: <HiCash className="text-amber-300" /> },
+  { value: "boleto", label: "Boleto", icon: <HiCreditCard className="text-emerald-300" /> },
+  { value: "vale", label: "VR/VA", icon: <HiCreditCard className="text-pink-300" /> },
+];
+
+// Normalizar nome de forma de pagamento para exibição
+const getPaymentMethodLabel = (value) => {
+  const option = paymentOptions.find(opt => opt.value === value);
+  return option ? option.label : value;
+};
+
 export default function Expenses() {
+  const now = new Date();
+  const defaultMonth = String(now.getMonth() + 1);
+  const defaultYear = String(now.getFullYear());
+
   const [form, setForm] = useState({
     description: "",
     amount: "",
     category: "",
     payment_method: "",
+    date: "",
     account_id: "",
   });
 
@@ -29,27 +60,34 @@ export default function Expenses() {
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, expenseId: null, expenseDesc: "" });
   const { refreshSummary } = useSummary();
 
+  const [filterMonth, setFilterMonth] = useState(defaultMonth);
+  const [filterYear, setFilterYear] = useState(defaultYear);
+  const [showAll, setShowAll] = useState(false);
+
   function startEdit(expense) {
     setEditingId(expense.id);
+    const parsed = parseDate(expense.date);
+    const dateStr = parsed ? parsed.toISOString().split('T')[0] : "";
     setForm({
       description: expense.description,
       amount: expense.amount.toString(),
-      category: expense.category,
-      payment_method: expense.payment_method,
+      category: expense.category || "",
+      payment_method: expense.payment_method || "",
+      date: dateStr,
       account_id: expense.account_id ? expense.account_id.toString() : "",
     });
   }
 
   function cancelEdit() {
     setEditingId(null);
-    setForm({ description: "", amount: "", category: "", payment_method: "", account_id: "" });
+    setForm({ description: "", amount: "", category: "", payment_method: "", date: "", account_id: "" });
   }
 
   // 🔹 Buscar lista de contas
   async function fetchAccounts() {
     try {
       const token = localStorage.getItem("token");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const apiUrl = API_URL || "http://localhost:8080";
       const res = await fetch(`${apiUrl}/accounts`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -66,8 +104,14 @@ export default function Expenses() {
   async function fetchExpenses() {
     try {
       const token = localStorage.getItem("token");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
-      const res = await fetch(`${apiUrl}/expenses`, {
+      const apiUrl = API_URL || "http://localhost:8080";
+      const params = new URLSearchParams();
+      if (!showAll) {
+        if (filterMonth) params.set("month", String(filterMonth));
+        if (filterYear) params.set("year", String(filterYear));
+      }
+
+      const res = await fetch(`${apiUrl}/expenses${params.toString() ? `?${params.toString()}` : ""}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Erro ao buscar gastos");
@@ -85,10 +129,12 @@ export default function Expenses() {
 
     try {
       const token = localStorage.getItem("token");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const apiUrl = API_URL || "http://localhost:8080";
       const url = editingId
         ? `${apiUrl}/expenses/update?id=${editingId}`
         : `${apiUrl}/expenses`;
+
+      const payloadDate = form.date || new Date().toISOString().split("T")[0];
       
       const res = await fetch(url, {
         method: editingId ? "PUT" : "POST",
@@ -99,13 +145,14 @@ export default function Expenses() {
         body: JSON.stringify({
           ...form,
           amount: parseFloat(form.amount),
+          date: payloadDate,
           account_id: form.account_id ? parseInt(form.account_id) : null,
         }),
       });
 
       if (res.ok) {
         setToast({ show: true, message: editingId ? "Gasto atualizado!" : "Gasto cadastrado!", type: "success" });
-        setForm({ description: "", amount: "", category: "", payment_method: "", account_id: "" });
+        setForm({ description: "", amount: "", category: "", payment_method: "", date: "", account_id: "" });
         setEditingId(null);
         refreshSummary();
         fetchExpenses();
@@ -123,7 +170,7 @@ export default function Expenses() {
   async function deleteExpense(id) {
     try {
       const token = localStorage.getItem("token");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const apiUrl = API_URL || "http://localhost:8080";
       const res = await fetch(`${apiUrl}/expenses/delete?id=${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
@@ -147,7 +194,7 @@ export default function Expenses() {
   useEffect(() => {
     fetchExpenses();
     fetchAccounts();
-  }, []);
+  }, [filterMonth, filterYear, showAll]);
 
   return (
     <div className="space-y-6">
@@ -160,6 +207,58 @@ export default function Expenses() {
       />
 
       <div className="grid md:grid-cols-3 gap-6">
+        {/* Filtros */}
+        <div className="md:col-span-3 bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-wrap gap-3 items-end shadow-inner shadow-black/20">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Mês</label>
+            <select
+              className="bg-gradient-to-br from-slate-800 to-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-violet-400 focus:outline-none focus:shadow-[0_0_0_2px_rgba(139,92,246,0.25)] transition"
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
+            >
+              <option value={defaultMonth}>Atual</option>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Ano</label>
+            <select
+              className="bg-gradient-to-br from-slate-800 to-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-violet-400 focus:outline-none focus:shadow-[0_0_0_2px_rgba(139,92,246,0.25)] transition"
+              value={filterYear}
+              onChange={(e) => setFilterYear(e.target.value)}
+            >
+              <option value={defaultYear}>Atual</option>
+              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="relative inline-flex items-center cursor-pointer select-none">
+              <input
+                id="showAll"
+                type="checkbox"
+                className="sr-only peer"
+                checked={showAll}
+                onChange={(e) => setShowAll(e.target.checked)}
+              />
+              <span className="w-10 h-6 bg-slate-700 border border-slate-600 rounded-full peer-checked:bg-violet-600 peer-checked:border-violet-500 transition-all shadow-inner" />
+              <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full peer-checked:translate-x-4 transition-transform shadow" />
+              <span className="ml-3 text-sm text-gray-300">Ver todos</span>
+            </label>
+
+            <button
+              type="button"
+              className="bg-gradient-to-r from-slate-700 to-slate-600 hover:from-violet-600 hover:to-violet-500 text-white px-4 py-2 rounded-lg font-semibold transition shadow-md hover:shadow-violet-500/20"
+              onClick={() => { setFilterMonth(defaultMonth); setFilterYear(defaultYear); setShowAll(false); }}
+            >
+              Limpar
+            </button>
+          </div>
+        </div>
+
         {/* Form */}
         <div className="md:col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-6 sticky top-24">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
@@ -198,6 +297,25 @@ export default function Expenses() {
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Data</label>
+              <div className="relative flex items-center">
+                <DatePicker
+                  selected={form.date ? parseDate(form.date) : null}
+                  onChange={(date) => {
+                    if (date) {
+                      const dateStr = date.toISOString().split("T")[0];
+                      setForm({ ...form, date: dateStr });
+                    }
+                  }}
+                  dateFormat="dd/MM/yyyy"
+                  placeholderText="Selecione a data"
+                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg p-2 focus:border-violet-400 focus:outline-none"
+                />
+                <HiCalendar className="absolute right-3 text-gray-400 pointer-events-none text-lg" />
+              </div>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">Conta</label>
               <select
                 className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg p-2 focus:border-violet-400 focus:outline-none"
@@ -215,13 +333,27 @@ export default function Expenses() {
 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">Forma de Pagamento</label>
-              <input
-                type="text"
-                placeholder="Ex: Débito, Crédito..."
-                className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg p-2 focus:border-violet-400 focus:outline-none"
-                value={form.payment_method}
-                onChange={(e) => setForm({ ...form, payment_method: e.target.value })}
-              />
+              <div className="flex flex-wrap gap-2">
+                {paymentOptions.map((opt) => {
+                  const isActive = form.payment_method === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setForm({ ...form, payment_method: opt.value })}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition text-sm ${
+                        isActive
+                          ? "bg-violet-600 border-violet-400 text-white"
+                          : "bg-slate-700 border-slate-600 text-gray-200 hover:border-violet-400"
+                      }`}
+                      aria-pressed={isActive}
+                    >
+                      {opt.icon}
+                      <span>{opt.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="flex gap-2 mt-4">
@@ -254,6 +386,21 @@ export default function Expenses() {
                     <div className="flex-1">
                       <h3 className="text-lg font-bold text-white">{exp.description}</h3>
                       <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-gray-400">
+                        {/* Data */}
+                        {exp.date && (() => {
+                          const parsed = parseDate(exp.date);
+                          return parsed ? (
+                            <span>
+                              {parsed.toLocaleDateString("pt-BR", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </span>
+                          ) : (
+                            <span>Data inválida</span>
+                          );
+                        })()}
                         {/* Categoria */}
                         {exp.category ? (
                           <span>
@@ -264,7 +411,7 @@ export default function Expenses() {
                         ) : "Sem categoria"}
                         {/* Forma de pagamento */}
                         {exp.payment_method && (
-                          <span className="pl-2 border-l border-slate-700">{exp.payment_method}</span>
+                          <span className="pl-2 border-l border-slate-700">{getPaymentMethodLabel(exp.payment_method)}</span>
                         )}
                         {/* Conta utilizada */}
                         {exp.account_id && (() => {

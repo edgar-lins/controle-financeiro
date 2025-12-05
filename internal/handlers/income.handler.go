@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/edgar-lins/controle-financeiro/internal/middleware"
@@ -21,18 +23,36 @@ func (h *IncomeHandler) CreateIncome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var income models.Income
-	err := json.NewDecoder(r.Body).Decode(&income)
-	if err != nil {
+	var req struct {
+		Description string  `json:"description"`
+		Amount      float64 `json:"amount"`
+		Date        string  `json:"date"`
+		AccountID   *int64  `json:"account_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Erro ao ler o corpo da requisição", http.StatusBadRequest)
 		return
 	}
 
-	if income.Date.IsZero() {
-		income.Date = time.Now()
+	incomeDate := time.Now().UTC()
+	if strings.TrimSpace(req.Date) != "" {
+		parsed, err := time.Parse("2006-01-02", req.Date)
+		if err != nil {
+			http.Error(w, "Data inválida, use YYYY-MM-DD", http.StatusBadRequest)
+			return
+		}
+		incomeDate = parsed
 	}
-	income.Month = int(income.Date.Month())
-	income.Year = income.Date.Year()
+
+	income := models.Income{
+		Description: req.Description,
+		Amount:      req.Amount,
+		Date:        incomeDate,
+		Month:       int(incomeDate.Month()),
+		Year:        incomeDate.Year(),
+		AccountID:   req.AccountID,
+	}
 
 	userIDVal := r.Context().Value(middleware.UserIDKey)
 	userID, _ := userIDVal.(int)
@@ -86,7 +106,27 @@ func (h *IncomeHandler) GetIncomes(w http.ResponseWriter, r *http.Request) {
 
 	userIDVal := r.Context().Value(middleware.UserIDKey)
 	userID, _ := userIDVal.(int)
-	rows, err := h.DB.Query(`SELECT id, description, amount, date, month, year, account_id FROM incomes WHERE user_id = $1 ORDER BY date DESC`, userID)
+	monthParam := r.URL.Query().Get("month")
+	yearParam := r.URL.Query().Get("year")
+
+	baseQuery := `SELECT id, description, amount, date, month, year, account_id FROM incomes WHERE user_id = $1`
+	args := []interface{}{userID}
+
+	if monthParam != "" {
+		baseQuery += " AND month = $" + strconv.Itoa(len(args)+1)
+		monthVal, _ := strconv.Atoi(monthParam)
+		args = append(args, monthVal)
+	}
+
+	if yearParam != "" {
+		baseQuery += " AND year = $" + strconv.Itoa(len(args)+1)
+		yearVal, _ := strconv.Atoi(yearParam)
+		args = append(args, yearVal)
+	}
+
+	baseQuery += " ORDER BY date DESC"
+
+	rows, err := h.DB.Query(baseQuery, args...)
 	if err != nil {
 		http.Error(w, "Erro ao buscar rendas", http.StatusInternalServerError)
 		fmt.Println("Erro:", err)
@@ -123,18 +163,36 @@ func (h *IncomeHandler) UpdateIncome(w http.ResponseWriter, r *http.Request) {
 	userIDVal := r.Context().Value(middleware.UserIDKey)
 	userID, _ := userIDVal.(int)
 
-	var income models.Income
-	err := json.NewDecoder(r.Body).Decode(&income)
-	if err != nil {
+	var req struct {
+		Description string  `json:"description"`
+		Amount      float64 `json:"amount"`
+		Date        string  `json:"date"`
+		AccountID   *int64  `json:"account_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Erro ao ler corpo da requisição", http.StatusBadRequest)
 		return
 	}
 
-	if income.Date.IsZero() {
-		income.Date = time.Now()
+	incomeDate := time.Now().UTC()
+	if strings.TrimSpace(req.Date) != "" {
+		parsed, err := time.Parse("2006-01-02", req.Date)
+		if err != nil {
+			http.Error(w, "Data inválida, use YYYY-MM-DD", http.StatusBadRequest)
+			return
+		}
+		incomeDate = parsed
 	}
-	income.Month = int(income.Date.Month())
-	income.Year = income.Date.Year()
+
+	income := models.Income{
+		Description: req.Description,
+		Amount:      req.Amount,
+		Date:        incomeDate,
+		Month:       int(incomeDate.Month()),
+		Year:        incomeDate.Year(),
+		AccountID:   req.AccountID,
+	}
 
 	// Start transaction
 	tx, err := h.DB.Begin()
