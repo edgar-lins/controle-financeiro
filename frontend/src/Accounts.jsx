@@ -50,7 +50,7 @@ export default function Accounts() {
     setForm({
       name: account.name,
       type: account.type,
-      balance: account.balance.toString(),
+      balance: (account.opening_balance ?? account.balance)?.toString() ?? "",
     });
   }
 
@@ -78,6 +78,7 @@ export default function Accounts() {
         body: JSON.stringify({
           ...form,
           balance: parseFloat(form.balance) || 0,
+          opening_balance: parseFloat(form.balance) || 0,
         }),
       });
 

@@ -8,6 +8,7 @@ type Account struct {
 	Name      string    `json:"name"`
 	Type      string    `json:"type"` // corrente, poupanca, cartao, investimento
 	Balance   float64   `json:"balance"`
+	Opening   float64   `json:"opening_balance"` // saldo inicial informado pelo usuário
 	CreatedAt time.Time `json:"created_at"`
 }
 
