@@ -7,6 +7,26 @@ Sistema de controle financeiro pessoal com regra 50/30/20, multi-usuário com au
 - **Frontend**: React (Vite) + TailwindCSS
 - **Auth**: JWT (bcrypt password hashing)
 
+## 📚 Documentação
+
+> 📖 **[Ver Índice Completo](INDEX.md)** - Navegação facilitada de toda documentação
+
+### 🚀 Começando
+- **[Início Rápido](QUICKSTART.md)** - Configure e rode em 5 minutos
+- **[Guia de Decisão](GUIDE.md)** - Qual comando/arquivo usar em cada situação
+
+### ⚙️ Configuração
+- **[Ambientes](ENVIRONMENTS.md)** - Guia completo dev/prod
+- **[Arquitetura](ARCHITECTURE.md)** - Diagramas e estrutura
+- **[Scripts](scripts/README.md)** - Automação de tarefas
+
+### 🚢 Deploy
+- **[Deploy](DEPLOY.md)** - Instruções de deploy
+- **[Changelog](CHANGELOG.md)** - Histórico de mudanças
+
+### 📊 Resumos
+- **[Resumo](SUMMARY.md)** - O que foi implementado
+
 ## Requisitos
 - Go 1.20+
 - Node.js 18+ (recomendado 20+)
@@ -50,14 +70,17 @@ done
 # Instalar dependências
 go mod tidy
 
-# Configurar JWT_SECRET (opcional, usa default em dev)
-export JWT_SECRET="seu-secret-aqui"
+# Configurar variáveis de ambiente
+cp .env.development .env
+# Edite o .env com suas configurações locais
 
 # Rodar
 go run cmd/api/main.go
 ```
 
 Backend roda em `http://localhost:8080`.
+
+**📝 Nota:** Veja [ENVIRONMENTS.md](ENVIRONMENTS.md) para detalhes sobre configuração de ambientes.
 
 ### 4. Frontend
 ```bash
