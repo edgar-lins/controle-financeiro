@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { HiTrash, HiPencil, HiSwitchHorizontal, HiX, HiChevronDown } from "react-icons/hi";
 import { MdAttachMoney } from "react-icons/md";
 import { formatCurrencyBR } from "./utils/format";
@@ -317,8 +318,8 @@ export default function Accounts() {
         </div>
       </div>
 
-      {showTransferModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+      {showTransferModal && createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] px-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 relative">
             <button
               onClick={closeTransferModal}
@@ -421,7 +422,7 @@ export default function Accounts() {
             </form>
           </div>
         </div>
-      )}
+      , document.body)}
 
       <ConfirmModal
         isOpen={deleteModal.isOpen}

@@ -167,9 +167,55 @@ func (h *AccountHandler) TransferFunds(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Optional: check balance of origin to avoid going negative unintentionally
-	var originBalance float64
-	h.DB.QueryRow(`SELECT balance FROM accounts WHERE id = $1 AND user_id = $2`, req.FromAccountID, userID).Scan(&originBalance)
+	// Calculate real balance of origin account (incomes - expenses + incoming transfers - outgoing transfers)
+	var totalIncomes, totalExpenses, incomingTransfers, outgoingTransfers float64
+	if err := h.DB.QueryRow(`
+		SELECT COALESCE(SUM(amount), 0)
+		FROM incomes
+		WHERE user_id = $1 AND account_id = $2
+	`, userID, req.FromAccountID).Scan(&totalIncomes); err != nil {
+		log.Printf("transfer income sum error user=%d err=%v", userID, err)
+		http.Error(w, "Erro ao calcular saldo", http.StatusInternalServerError)
+		return
+	}
+
+	if err := h.DB.QueryRow(`
+		SELECT COALESCE(SUM(amount), 0)
+		FROM expenses
+		WHERE user_id = $1 AND account_id = $2
+	`, userID, req.FromAccountID).Scan(&totalExpenses); err != nil {
+		log.Printf("transfer expense sum error user=%d err=%v", userID, err)
+		http.Error(w, "Erro ao calcular saldo", http.StatusInternalServerError)
+		return
+	}
+
+	if err := h.DB.QueryRow(`
+		SELECT COALESCE(SUM(amount), 0)
+		FROM transfers
+		WHERE user_id = $1 AND to_account_id = $2
+	`, userID, req.FromAccountID).Scan(&incomingTransfers); err != nil {
+		log.Printf("transfer incoming sum error user=%d err=%v", userID, err)
+		http.Error(w, "Erro ao calcular saldo", http.StatusInternalServerError)
+		return
+	}
+
+	if err := h.DB.QueryRow(`
+		SELECT COALESCE(SUM(amount), 0)
+		FROM transfers
+		WHERE user_id = $1 AND from_account_id = $2
+	`, userID, req.FromAccountID).Scan(&outgoingTransfers); err != nil {
+		log.Printf("transfer outgoing sum error user=%d err=%v", userID, err)
+		http.Error(w, "Erro ao calcular saldo", http.StatusInternalServerError)
+		return
+	}
+
+	currentBalance := (totalIncomes + incomingTransfers) - (totalExpenses + outgoingTransfers)
+
+	// Validate sufficient balance
+	if currentBalance < req.Amount {
+		http.Error(w, "Saldo insuficiente para esta transferência", http.StatusBadRequest)
+		return
+	}
 
 	tx, err := h.DB.Begin()
 	if err != nil {
