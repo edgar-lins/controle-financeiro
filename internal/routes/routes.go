@@ -15,6 +15,7 @@ func SetupRoutes(db *sql.DB) {
 	authHandler := handlers.AuthHandler{DB: db}
 	accountHandler := handlers.AccountHandler{DB: db}
 	goalHandler := handlers.GoalHandler{DB: db}
+	migrationHandler := handlers.MigrationHandler{DB: db}
 
 	// Auth endpoints (public)
 	http.HandleFunc("/auth/signup", authHandler.Signup)
@@ -84,5 +85,9 @@ func SetupRoutes(db *sql.DB) {
 			http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
 		}
 	})
+
+	// Migration endpoints
+	http.HandleFunc("/migration/check", middleware.WithAuth(migrationHandler.CheckUnlinkedTransactions))
+	http.HandleFunc("/migration/migrate", middleware.WithAuth(migrationHandler.MigrateUnlinkedTransactions))
 
 }

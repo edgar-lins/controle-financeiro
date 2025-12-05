@@ -59,6 +59,18 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 	userIDVal := r.Context().Value(middleware.UserIDKey)
 	userID, _ := userIDVal.(int)
 
+	// Se não tem account_id, cria/busca Carteira Geral
+	if expense.AccountID == nil {
+		accountHandler := &AccountHandler{DB: h.DB}
+		defaultAccountID, err := accountHandler.GetOrCreateDefaultAccount(userID)
+		if err != nil {
+			http.Error(w, "Erro ao criar conta padrão", http.StatusInternalServerError)
+			fmt.Println("Erro ao criar conta padrão:", err)
+			return
+		}
+		expense.AccountID = &defaultAccountID
+	}
+
 	// Start transaction
 	tx, err := h.DB.Begin()
 	if err != nil {

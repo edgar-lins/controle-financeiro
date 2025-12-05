@@ -106,3 +106,33 @@ func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// GetOrCreateDefaultAccount busca ou cria uma "Carteira Geral" padrão para o usuário
+func (h *AccountHandler) GetOrCreateDefaultAccount(userID int) (int64, error) {
+	var accountID int64
+
+	// Primeiro, tenta buscar uma carteira geral existente
+	err := h.DB.QueryRow(`
+		SELECT id FROM accounts 
+		WHERE user_id = $1 AND name = 'Carteira Geral'
+		ORDER BY created_at ASC
+		LIMIT 1
+	`, userID).Scan(&accountID)
+
+	if err == sql.ErrNoRows {
+		// Se não existe, cria uma nova
+		err = h.DB.QueryRow(`
+			INSERT INTO accounts (user_id, name, type, balance)
+			VALUES ($1, 'Carteira Geral', 'corrente', 0)
+			RETURNING id
+		`, userID).Scan(&accountID)
+
+		if err != nil {
+			return 0, err
+		}
+	} else if err != nil {
+		return 0, err
+	}
+
+	return accountID, nil
+}

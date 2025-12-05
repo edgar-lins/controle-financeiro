@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSummary } from "./SummaryContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { HiChartBar, HiHome, HiSparkles, HiTrendingUp, HiCheckCircle, HiExclamation, HiChevronDown } from "react-icons/hi";
+import { HiChartBar, HiHome, HiSparkles, HiTrendingUp, HiCheckCircle, HiExclamation, HiChevronDown, HiInformationCircle } from "react-icons/hi";
 import { formatCurrencyBR } from "./utils/format";
 import API_URL from "./config/api";
 import { ExportData } from "./components/ExportData";
@@ -11,7 +11,9 @@ export default function Dashboard({ userName, getGreeting }) {
   const [summary, setSummary] = useState(null);
   const [monthlyHistory, setMonthlyHistory] = useState([]);
   const [accounts, setAccounts] = useState([]);
+  const [unlinkedData, setUnlinkedData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [migrating, setMigrating] = useState(false);
   const [month, setMonth] = useState("");
   const [year, setYear] = useState("");
   const [preferences, setPreferences] = useState({
@@ -86,11 +88,51 @@ export default function Dashboard({ userName, getGreeting }) {
       }
     }
 
+    async function checkUnlinkedTransactions() {
+      try {
+        const token = localStorage.getItem("token");
+        const apiUrl = API_URL || "http://localhost:8080";
+        const res = await fetch(`${apiUrl}/migration/check`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (data.has_unlinked) {
+          setUnlinkedData(data);
+        }
+      } catch (error) {
+        console.error("Erro ao verificar transações não vinculadas:", error);
+      }
+    }
+
     fetchPreferences();
     fetchSummary();
     fetchMonthlyHistory();
     fetchAccounts();
+    checkUnlinkedTransactions();
   }, [refreshKey, month, year]);
+
+  async function handleMigrateTransactions() {
+    try {
+      setMigrating(true);
+      const token = localStorage.getItem("token");
+      const apiUrl = API_URL || "http://localhost:8080";
+      const res = await fetch(`${apiUrl}/migration/migrate`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      if (res.ok) {
+        setUnlinkedData(null);
+        // Recarrega dados
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error("Erro ao migrar transações:", error);
+      alert("Erro ao organizar transações. Tente novamente.");
+    } finally {
+      setMigrating(false);
+    }
+  }
 
   if (loading)
     return (
@@ -118,12 +160,52 @@ export default function Dashboard({ userName, getGreeting }) {
         colorClass="from-blue-600 to-cyan-600"
         greeting={
           userName && getGreeting ? (
-            <p className="text-lg font-semibold text-blue-100">
-              {getGreeting()}, <span className="font-bold bg-gradient-to-r from-cyan-300 via-teal-300 to-emerald-400 bg-clip-text text-transparent animate-gradient bg-[length:200%_auto]">{userName}</span>!
+            <p className="text-xs md:text-sm lg:text-base text-blue-100 m-0">
+              <span className="text-lg font-semibold text-blue-100">
+                {getGreeting()}, <span className="font-bold bg-gradient-to-r from-cyan-300 via-teal-300 to-emerald-400 bg-clip-text text-transparent animate-gradient bg-[length:200%_auto]">{userName}</span>!
+              </span>
             </p>
           ) : null
         }
       />
+
+      {/* Banner de Migração */}
+      {unlinkedData && (
+        <div className="bg-gradient-to-r from-orange-900/40 to-amber-900/40 border-2 border-orange-500/60 rounded-xl p-5 shadow-lg">
+          <div className="flex items-start gap-4">
+            <HiExclamation className="text-orange-400 text-3xl flex-shrink-0 mt-1" />
+            <div className="flex-1">
+              <h3 className="text-orange-300 font-bold text-lg mb-2">
+                Transações Não Vinculadas Detectadas
+              </h3>
+              <p className="text-orange-200 text-sm mb-3">
+                Você tem <strong>{unlinkedData.total_unlinked} transação(ões)</strong> ({unlinkedData.unlinked_incomes} rendas, {unlinkedData.unlinked_expenses} gastos) 
+                que não estão vinculadas a nenhuma conta. Isso pode causar inconsistência no seu patrimônio.
+              </p>
+              <p className="text-orange-100 text-xs mb-4">
+                💡 Vamos organizar? Clique abaixo para criar automaticamente uma "Carteira Geral" e vincular todas essas transações.
+              </p>
+              <button
+                onClick={handleMigrateTransactions}
+                disabled={migrating}
+                className="bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white font-semibold px-6 py-2.5 rounded-lg transition shadow-md flex items-center gap-2"
+              >
+                {migrating ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Organizando...
+                  </>
+                ) : (
+                  <>
+                    <HiCheckCircle className="text-xl" />
+                    Organizar Transações
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filtros */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
@@ -207,12 +289,14 @@ export default function Dashboard({ userName, getGreeting }) {
       {/* Widget Patrimônio */}
       {accounts.length > 0 ? (
         <div className="bg-gradient-to-br from-cyan-900 to-blue-900 border border-cyan-700 rounded-xl p-6 shadow-lg">
-          <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-            <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-            </svg>
-            Patrimônio Total
-          </h2>
+          <div className="relative">
+            <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+              <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+              </svg>
+              Patrimônio Total
+            </h2>
+          </div>
           <div className="flex items-end justify-between mb-4">
             <div>
               <p className="text-cyan-200 text-sm font-medium">Soma de todas as contas</p>
@@ -224,8 +308,15 @@ export default function Dashboard({ userName, getGreeting }) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
             {accounts.map((acc) => (
               <div key={acc.id} className="bg-slate-800/50 border border-cyan-800/30 rounded-lg p-3">
-                <p className="text-cyan-300 text-xs font-medium uppercase">{acc.type}</p>
-                <p className="text-white font-semibold mt-1">{acc.name}</p>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-cyan-300 text-xs font-medium uppercase">{acc.type}</p>
+                    <p className="text-white font-semibold mt-1">{acc.name}</p>
+                  </div>
+                  {acc.name === "Carteira Geral" && (
+                    <InfoIcon tooltip="A Carteira Geral agrupa transações sem uma conta específica. Novos gastos/rendas sem conta selecionada vão para lá automaticamente." />
+                  )}
+                </div>
                 <p className="text-cyan-100 text-lg font-bold mt-2">{formatCurrencyBR(acc.balance)}</p>
               </div>
             ))}
@@ -375,6 +466,30 @@ function Category({ icon, name, ideal, real }) {
         <span>R$ {real?.toFixed(2) || "0.00"}</span>
         <span>Limite: {formatCurrencyBR(ideal)}</span>
       </div>
+    </div>
+  );
+}
+
+function InfoIcon({ tooltip }) {
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  return (
+    <div className="relative inline-block">
+      <button
+        type="button"
+        className="text-cyan-300 hover:text-cyan-100 transition-colors focus:outline-none"
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+        onClick={() => setShowTooltip(!showTooltip)}
+      >
+        <HiInformationCircle className="text-lg" />
+      </button>
+
+      {showTooltip && (
+        <div className="absolute left-8 top-1/2 transform -translate-y-1/2 w-48 bg-slate-900 text-cyan-100 text-xs rounded-lg shadow-xl border border-cyan-500/30 p-3 z-50 pointer-events-none">
+          {tooltip}
+        </div>
+      )}
     </div>
   );
 }
