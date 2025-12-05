@@ -256,7 +256,7 @@ export default function Incomes() {
         </div>
 
         {/* Form */}
-        <div className="md:col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-6 sticky top-24">
+        <div className="md:col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-6 md:sticky md:top-6 md:self-start md:max-h-[calc(100vh-3rem)] md:overflow-y-auto">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <MdAttachMoney className="text-emerald-400" /> 
             {editingId ? "Editar Renda" : "Nova Renda"}
