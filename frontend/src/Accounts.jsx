@@ -435,13 +435,13 @@ export default function Accounts() {
         isDangerous={true}
       />
 
-      {toast.show && (
+      {toast.show && createPortal(
         <Toast
           message={toast.message}
           type={toast.type}
           onClose={() => setToast({ show: false, message: "", type: "success" })}
         />
-      )}
+      , document.body)}
     </div>
   );
 }
