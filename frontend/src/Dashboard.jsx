@@ -35,87 +35,87 @@ export default function Dashboard({ userName, getGreeting }) {
     }));
   };
 
+  const fetchPreferences = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const apiUrl = API_URL || "http://localhost:8080";
+      const res = await fetch(`${apiUrl}/preferences`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setPreferences(data);
+    } catch (error) {
+      console.error("Erro ao buscar preferências:", error);
+    }
+  };
+
+  const fetchSummary = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (month) params.set("month", String(month));
+      if (year) params.set("year", String(year));
+      const apiUrl = API_URL || "http://localhost:8080";
+      const url = `${apiUrl}/summary${params.toString() ? `?${params.toString()}` : ""}`;
+      const token = localStorage.getItem("token");
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setSummary(data);
+    } catch (error) {
+      console.error("Erro ao buscar resumo:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMonthlyHistory = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const apiUrl = API_URL || "http://localhost:8080";
+      const res = await fetch(`${apiUrl}/summary/history`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setMonthlyHistory(data || []);
+    } catch (error) {
+      console.error("Erro ao buscar histórico mensal:", error);
+    }
+  };
+
+  const fetchAccounts = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const apiUrl = API_URL || "http://localhost:8080";
+      const res = await fetch(`${apiUrl}/accounts`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setAccounts(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Erro ao buscar contas:", error);
+      setAccounts([]);
+    }
+  };
+
+  const checkUnlinkedTransactions = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const apiUrl = API_URL || "http://localhost:8080";
+      const res = await fetch(`${apiUrl}/migration/check`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.has_unlinked) {
+        setUnlinkedData(data);
+      }
+    } catch (error) {
+      console.error("Erro ao verificar transações não vinculadas:", error);
+    }
+  };
+
   useEffect(() => {
-    async function fetchPreferences() {
-      try {
-        const token = localStorage.getItem("token");
-        const apiUrl = API_URL || "http://localhost:8080";
-        const res = await fetch(`${apiUrl}/preferences`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        setPreferences(data);
-      } catch (error) {
-        console.error("Erro ao buscar preferências:", error);
-      }
-    }
-
-    async function fetchSummary() {
-      try {
-        setLoading(true);
-        const params = new URLSearchParams();
-        if (month) params.set("month", String(month));
-        if (year) params.set("year", String(year));
-        const apiUrl = API_URL || "http://localhost:8080";
-        const url = `${apiUrl}/summary${params.toString() ? `?${params.toString()}` : ""}`;
-        const token = localStorage.getItem("token");
-        const res = await fetch(url, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        setSummary(data);
-      } catch (error) {
-        console.error("Erro ao buscar resumo:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    async function fetchMonthlyHistory() {
-      try {
-        const token = localStorage.getItem("token");
-        const apiUrl = API_URL || "http://localhost:8080";
-        const res = await fetch(`${apiUrl}/summary/history`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        setMonthlyHistory(data || []);
-      } catch (error) {
-        console.error("Erro ao buscar histórico mensal:", error);
-      }
-    }
-
-    async function fetchAccounts() {
-      try {
-        const token = localStorage.getItem("token");
-        const apiUrl = API_URL || "http://localhost:8080";
-        const res = await fetch(`${apiUrl}/accounts`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        setAccounts(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error("Erro ao buscar contas:", error);
-        setAccounts([]);
-      }
-    }
-
-    async function checkUnlinkedTransactions() {
-      try {
-        const token = localStorage.getItem("token");
-        const apiUrl = API_URL || "http://localhost:8080";
-        const res = await fetch(`${apiUrl}/migration/check`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (data.has_unlinked) {
-          setUnlinkedData(data);
-        }
-      } catch (error) {
-        console.error("Erro ao verificar transações não vinculadas:", error);
-      }
-    }
-
     fetchPreferences();
     fetchSummary();
     fetchMonthlyHistory();
@@ -145,6 +145,7 @@ export default function Dashboard({ userName, getGreeting }) {
       setMigrating(false);
     }
   }
+
 
   if (loading)
     return (
@@ -365,11 +366,11 @@ export default function Dashboard({ userName, getGreeting }) {
                         <p className="text-white font-semibold mt-1">{acc.name}</p>
                       </div>
                     </div>
-                    {isCarteiraGeral && (
-                      <div className="absolute top-3 right-3">
+                    <div className="absolute top-3 right-3">
+                      {isCarteiraGeral && (
                         <InfoIcon tooltip="A Carteira Geral agrupa transações sem uma conta específica. Novos gastos/rendas sem conta selecionada vão para lá automaticamente." />
-                      </div>
-                    )}
+                      )}
+                    </div>
                     <p
                       className={`text-lg font-bold mt-2 ${
                         isNegative
@@ -528,6 +529,7 @@ export default function Dashboard({ userName, getGreeting }) {
       <div className="flex justify-center">
         <ExportData />
       </div>
+
     </div>
   );
 }

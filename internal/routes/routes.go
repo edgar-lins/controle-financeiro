@@ -58,6 +58,7 @@ func SetupRoutes(db *sql.DB) {
 			http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
 		}
 	})
+	http.HandleFunc("/accounts/transfer", middleware.WithAuth(accountHandler.TransferFunds))
 	http.HandleFunc("/accounts/delete", middleware.WithAuth(accountHandler.DeleteAccount))
 	http.HandleFunc("/accounts/update", middleware.WithAuth(accountHandler.UpdateAccount))
 

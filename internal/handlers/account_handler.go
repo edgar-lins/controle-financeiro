@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/edgar-lins/controle-financeiro/internal/middleware"
@@ -69,7 +70,20 @@ func (h *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 			WHERE user_id = $1 AND account_id = $2
 		`, userID, acc.ID).Scan(&totalExpenses)
 
-		acc.Balance = totalIncomes - totalExpenses
+		var incomingTransfers, outgoingTransfers float64
+		h.DB.QueryRow(`
+			SELECT COALESCE(SUM(amount), 0)
+			FROM transfers
+			WHERE user_id = $1 AND to_account_id = $2
+		`, userID, acc.ID).Scan(&incomingTransfers)
+
+		h.DB.QueryRow(`
+			SELECT COALESCE(SUM(amount), 0)
+			FROM transfers
+			WHERE user_id = $1 AND from_account_id = $2
+		`, userID, acc.ID).Scan(&outgoingTransfers)
+
+		acc.Balance = (totalIncomes + incomingTransfers) - (totalExpenses + outgoingTransfers)
 		accounts = append(accounts, acc)
 	}
 
@@ -102,6 +116,101 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"message": "Conta atualizada com sucesso"}`))
+}
+
+type transferRequest struct {
+	FromAccountID int64   `json:"from_account_id"`
+	ToAccountID   int64   `json:"to_account_id"`
+	Amount        float64 `json:"amount"`
+	Date          string  `json:"date"`
+	Description   string  `json:"description"`
+}
+
+// TransferFunds moves money between two user accounts without affecting income/expense totals
+func (h *AccountHandler) TransferFunds(w http.ResponseWriter, r *http.Request) {
+	userIDVal := r.Context().Value(middleware.UserIDKey)
+	userID, _ := userIDVal.(int)
+
+	var req transferRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("transfer decode error user=%d err=%v", userID, err)
+		http.Error(w, "Dados inválidos", http.StatusBadRequest)
+		return
+	}
+
+	if req.FromAccountID == 0 || req.ToAccountID == 0 {
+		http.Error(w, "Contas de origem e destino são obrigatórias", http.StatusBadRequest)
+		return
+	}
+
+	if req.FromAccountID == req.ToAccountID {
+		http.Error(w, "Escolha contas diferentes para transferir", http.StatusBadRequest)
+		return
+	}
+
+	if req.Amount <= 0 {
+		http.Error(w, "Valor deve ser maior que zero", http.StatusBadRequest)
+		return
+	}
+
+	// Validate that both accounts belong to the user
+	var count int
+	if err := h.DB.QueryRow(`
+		SELECT COUNT(*) FROM accounts WHERE user_id = $1 AND id IN ($2, $3)
+	`, userID, req.FromAccountID, req.ToAccountID).Scan(&count); err != nil {
+		log.Printf("transfer account validation error user=%d err=%v", userID, err)
+		http.Error(w, "Erro ao validar contas", http.StatusInternalServerError)
+		return
+	}
+	if count != 2 {
+		http.Error(w, "Contas inválidas", http.StatusForbidden)
+		return
+	}
+
+	// Optional: check balance of origin to avoid going negative unintentionally
+	var originBalance float64
+	h.DB.QueryRow(`SELECT balance FROM accounts WHERE id = $1 AND user_id = $2`, req.FromAccountID, userID).Scan(&originBalance)
+
+	tx, err := h.DB.Begin()
+	if err != nil {
+		log.Printf("transfer tx begin error user=%d err=%v", userID, err)
+		http.Error(w, "Erro ao iniciar transferência", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	dateValue := req.Date
+	if dateValue == "" {
+		// use today's date if not provided
+		dateValue = "" // handled by DEFAULT if empty
+	}
+
+	_, err = tx.Exec(`
+		INSERT INTO transfers (user_id, from_account_id, to_account_id, amount, description, date)
+		VALUES ($1, $2, $3, $4, $5, COALESCE(NULLIF($6,'')::date, CURRENT_DATE))
+	`, userID, req.FromAccountID, req.ToAccountID, req.Amount, req.Description, dateValue)
+	if err != nil {
+		log.Printf("transfer insert error user=%d err=%v", userID, err)
+		http.Error(w, "Erro ao registrar transferência", http.StatusInternalServerError)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Printf("transfer tx commit error user=%d err=%v", userID, err)
+		http.Error(w, "Erro ao concluir transferência", http.StatusInternalServerError)
+		return
+	}
+
+	// Recalculate balances after the transfer
+	if err := h.RecalculateAccountBalance(req.FromAccountID, userID); err != nil {
+		log.Printf("transfer recalc origin error user=%d acc=%d err=%v", userID, req.FromAccountID, err)
+	}
+	if err := h.RecalculateAccountBalance(req.ToAccountID, userID); err != nil {
+		log.Printf("transfer recalc dest error user=%d acc=%d err=%v", userID, req.ToAccountID, err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"message":"Transferência realizada com sucesso"}`))
 }
 
 func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
@@ -188,7 +297,27 @@ func (h *AccountHandler) RecalculateAccountBalance(accountID int64, userID int) 
 		return err
 	}
 
-	newBalance := totalIncomes - totalExpenses
+	var incomingTransfers, outgoingTransfers float64
+
+	err = h.DB.QueryRow(`
+		SELECT COALESCE(SUM(amount), 0)
+		FROM transfers
+		WHERE user_id = $1 AND to_account_id = $2
+	`, userID, accountID).Scan(&incomingTransfers)
+	if err != nil {
+		return err
+	}
+
+	err = h.DB.QueryRow(`
+		SELECT COALESCE(SUM(amount), 0)
+		FROM transfers
+		WHERE user_id = $1 AND from_account_id = $2
+	`, userID, accountID).Scan(&outgoingTransfers)
+	if err != nil {
+		return err
+	}
+
+	newBalance := (totalIncomes + incomingTransfers) - (totalExpenses + outgoingTransfers)
 
 	_, err = h.DB.Exec(`
 		UPDATE accounts

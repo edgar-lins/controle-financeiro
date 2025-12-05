@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { HiTrash, HiPencil } from "react-icons/hi";
+import { HiTrash, HiPencil, HiSwitchHorizontal, HiX, HiChevronDown } from "react-icons/hi";
 import { MdAttachMoney } from "react-icons/md";
 import { formatCurrencyBR } from "./utils/format";
 import { AccountTypeSelect } from "./components/AccountTypeSelect";
@@ -14,6 +14,13 @@ export default function Accounts() {
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
   const [editingId, setEditingId] = useState(null);
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, accountId: null, accountName: "" });
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferForm, setTransferForm] = useState({
+    from_account_id: "",
+    to_account_id: "",
+    amount: "",
+    description: "",
+  });
 
   const accountTypes = {
     corrente: "Conta Corrente",
@@ -111,6 +118,60 @@ export default function Accounts() {
     setDeleteModal({ isOpen: false, accountId: null, accountName: "" });
   }
 
+  function openTransferFrom(fromId) {
+    setTransferForm({ from_account_id: String(fromId), to_account_id: "", amount: "", description: "" });
+    setShowTransferModal(true);
+  }
+
+  function closeTransferModal() {
+    setShowTransferModal(false);
+    setTransferForm({ from_account_id: "", to_account_id: "", amount: "", description: "" });
+  }
+
+  async function handleTransfer(e) {
+    e.preventDefault();
+    if (!transferForm.amount || Number(transferForm.amount) <= 0) {
+      setToast({ show: true, message: "Informe um valor válido", type: "error" });
+      return;
+    }
+    if (transferForm.from_account_id === transferForm.to_account_id) {
+      setToast({ show: true, message: "Escolha contas diferentes", type: "error" });
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const payload = {
+        from_account_id: Number(transferForm.from_account_id),
+        to_account_id: Number(transferForm.to_account_id),
+        amount: Number(transferForm.amount),
+        description: transferForm.description,
+      };
+
+      const res = await fetch(`${apiUrl}/accounts/transfer`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "Erro ao transferir");
+      }
+
+      setToast({ show: true, message: "Transferência realizada!", type: "success" });
+      setShowTransferModal(false);
+      setTransferForm({ from_account_id: "", to_account_id: "", amount: "", description: "" });
+      fetchAccounts();
+    } catch (error) {
+      setToast({ show: true, message: error.message || "Erro ao transferir", type: "error" });
+    }
+  }
+
   useEffect(() => {
     fetchAccounts();
   }, []);
@@ -201,15 +262,22 @@ export default function Accounts() {
                         : "bg-slate-900 border-slate-800"
                     }`}
                   >
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
+                    <div className="flex justify-between items-start gap-3 flex-wrap">
+                      <div className="flex-1 min-w-[180px]">
                         <h3 className="text-lg font-bold text-white">{acc.name}</h3>
                         <p className="text-sm text-gray-400">{accountTypes[acc.type]}</p>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => openTransferFrom(acc.id)}
+                          className="text-cyan-400 hover:text-cyan-300 transition duration-200"
+                          title="Transferir entre contas"
+                        >
+                          <HiSwitchHorizontal className="text-lg" />
+                        </button>
                         <button
                           onClick={() => startEdit(acc)}
-                          className="text-slate-400 hover:text-slate-300 transition duration-200 flex items-center gap-1"
+                          className="text-slate-400 hover:text-slate-300 transition duration-200"
                           title="Editar conta"
                         >
                           <HiPencil className="text-lg" />
@@ -217,7 +285,7 @@ export default function Accounts() {
                         <button
                           onClick={() => setDeleteModal({ isOpen: true, accountId: acc.id, accountName: acc.name })}
                           disabled={acc.name === "Carteira Geral"}
-                          className={`transition duration-200 flex items-center gap-1 ${
+                          className={`transition duration-200 ${
                             acc.name === "Carteira Geral"
                               ? "text-gray-600 cursor-not-allowed opacity-50"
                               : "text-red-400 hover:text-red-300"
@@ -248,6 +316,112 @@ export default function Accounts() {
           )}
         </div>
       </div>
+
+      {showTransferModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 relative">
+            <button
+              onClick={closeTransferModal}
+              className="absolute top-3 right-3 text-slate-400 hover:text-white"
+              aria-label="Fechar"
+            >
+              <HiX className="text-xl" />
+            </button>
+            <div className="flex items-center gap-2 mb-4">
+              <HiSwitchHorizontal className="text-cyan-400 text-2xl" />
+              <div>
+                <h3 className="text-lg font-bold text-white">Transferir entre contas</h3>
+                <p className="text-sm text-slate-300">Movimente saldo entre contas sem registrar receita ou despesa.</p>
+              </div>
+            </div>
+            <form className="space-y-4" onSubmit={handleTransfer}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-200 mb-2">Conta de origem</label>
+                  <div className="relative">
+                    <select
+                      className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg py-2 pl-3 pr-10 appearance-none focus:border-cyan-400 focus:outline-none focus:shadow-[0_0_0_2px_rgba(34,211,238,0.25)] transition"
+                      value={transferForm.from_account_id}
+                      onChange={(e) => setTransferForm({ ...transferForm, from_account_id: e.target.value })}
+                      required
+                    >
+                      <option value="">Selecione</option>
+                      {accounts.map((acc) => (
+                        <option key={`from-${acc.id}`} value={acc.id}>{acc.name}</option>
+                      ))}
+                    </select>
+                    <HiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-200 mb-2">Conta de destino</label>
+                  <div className="relative">
+                    <select
+                      className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg py-2 pl-3 pr-10 appearance-none focus:border-cyan-400 focus:outline-none focus:shadow-[0_0_0_2px_rgba(34,211,238,0.25)] transition"
+                      value={transferForm.to_account_id}
+                      onChange={(e) => setTransferForm({ ...transferForm, to_account_id: e.target.value })}
+                      required
+                    >
+                      <option value="">Selecione</option>
+                      {accounts.map((acc) => (
+                        <option
+                          key={`to-${acc.id}`}
+                          value={acc.id}
+                          disabled={transferForm.from_account_id === String(acc.id)}
+                        >
+                          {acc.name}
+                        </option>
+                      ))}
+                    </select>
+                    <HiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-200 mb-2">Valor</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg py-2.5 px-4"
+                    value={transferForm.amount}
+                    onChange={(e) => setTransferForm({ ...transferForm, amount: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-200 mb-2">Descrição (opcional)</label>
+                  <input
+                    type="text"
+                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg py-2.5 px-4"
+                    value={transferForm.description}
+                    onChange={(e) => setTransferForm({ ...transferForm, description: e.target.value })}
+                    placeholder="Ex: reserva de emergência"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closeTransferModal}
+                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold shadow"
+                >
+                  Transferir
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <ConfirmModal
         isOpen={deleteModal.isOpen}
