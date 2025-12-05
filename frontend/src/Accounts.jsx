@@ -72,27 +72,22 @@ export default function Accounts() {
       
       let payload;
       if (editingId) {
-        const editingAccount = accounts.find(a => a.id === editingId);
-        const currentBalance = editingAccount?.balance || 0;
-        const currentOpening = editingAccount?.opening_balance || 0;
-        const desiredBalance = parseFloat(form.balance) || 0;
-        const balanceDiff = desiredBalance - currentBalance;
-        const newOpening = Math.round((currentOpening + balanceDiff) * 100) / 100;
-        
-        console.log('Edit calculation:', { currentBalance, currentOpening, desiredBalance, balanceDiff, newOpening });
-        
+        // When editing, only update the opening_balance
+        // Backend will recalculate actual balance from: opening + incomes - expenses + transfers
+        const newOpening = parseFloat(form.balance) || 0;
         payload = {
           name: form.name,
           type: form.type,
-          balance: desiredBalance,
           opening_balance: newOpening,
         };
       } else {
+        // When creating new account
+        const initialBalance = parseFloat(form.balance) || 0;
         payload = {
           name: form.name,
           type: form.type,
-          balance: parseFloat(form.balance) || 0,
-          opening_balance: parseFloat(form.balance) || 0,
+          opening_balance: initialBalance,
+          balance: initialBalance,
         };
       }
       

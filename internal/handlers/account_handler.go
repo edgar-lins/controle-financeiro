@@ -120,12 +120,13 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// When editing, only update opening_balance
+	// Balance will be recalculated from: opening + incomes - expenses + transfers
 	opening := acc.Opening
 	if opening == 0 && acc.Balance != 0 {
+		// Fallback: if opening not provided but balance is, use balance
 		opening = acc.Balance
 	}
-
-	log.Printf("update account user=%d id=%s name=%s opening_balance=%f", userID, id, acc.Name, opening)
 
 	query := `UPDATE accounts SET name = $1, type = $2, opening_balance = $3 WHERE id = $4 AND user_id = $5`
 	result, err := h.DB.Exec(query, acc.Name, acc.Type, opening, id, userID)
