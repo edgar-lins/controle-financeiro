@@ -43,6 +43,7 @@ func SetupRoutes(db *sql.DB) {
 
 	http.HandleFunc("/summary", middleware.WithAuth(summaryHandler.GetSummary))
 	http.HandleFunc("/summary/history", middleware.WithAuth(summaryHandler.GetMonthlyHistory))
+	http.HandleFunc("/summary/breakdown", middleware.WithAuth(summaryHandler.GetExpenseBreakdown))
 	http.HandleFunc("/expenses/delete", middleware.WithAuth(expenseHandler.DeleteExpense))
 	http.HandleFunc("/expenses/update", middleware.WithAuth(expenseHandler.UpdateExpense))
 	http.HandleFunc("/incomes/delete", middleware.WithAuth(incomeHandler.DeleteIncome))

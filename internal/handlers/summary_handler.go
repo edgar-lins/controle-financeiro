@@ -132,44 +132,34 @@ func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 🔹 Busca gastos por categoria (aceitando variações de texto)
+	// 🔹 Busca gastos por grupo (50/30/20) usando o campo group
 	var realFixos, realLazer, realInvest float64
 
+	// Essenciais (50%)
 	h.DB.QueryRow(`
 		SELECT COALESCE(SUM(amount), 0)
 		FROM expenses
-		WHERE (
-			category ILIKE '%fix%' OR
-			category ILIKE '%alug%' OR
-			category ILIKE '%conta%' OR
-			category ILIKE '%moradia%'
-		)
+		WHERE "group" = 'essencial'
 		AND EXTRACT(MONTH FROM date) = $1
 		AND EXTRACT(YEAR FROM date) = $2
 		AND user_id = $3
 	`, month, year, userID).Scan(&realFixos)
 
+	// Lazer (30%)
 	h.DB.QueryRow(`
 		SELECT COALESCE(SUM(amount), 0)
 		FROM expenses
-		WHERE (
-			category ILIKE '%lazer%' OR
-			category ILIKE '%divers%' OR
-			category ILIKE '%entreten%'
-		)
+		WHERE "group" = 'lazer'
 		AND EXTRACT(MONTH FROM date) = $1
 		AND EXTRACT(YEAR FROM date) = $2
 		AND user_id = $3
 	`, month, year, userID).Scan(&realLazer)
 
+	// Investimento (20%)
 	h.DB.QueryRow(`
 		SELECT COALESCE(SUM(amount), 0)
 		FROM expenses
-		WHERE (
-			category ILIKE '%invest%' OR
-			category ILIKE '%poup%' OR
-			category ILIKE '%reserva%'
-		)
+		WHERE "group" = 'investimento'
 		AND EXTRACT(MONTH FROM date) = $1
 		AND EXTRACT(YEAR FROM date) = $2
 		AND user_id = $3
@@ -229,4 +219,88 @@ func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(summary)
+}
+
+type CategoryBreakdown struct {
+	Category string  `json:"category"`
+	Amount   float64 `json:"amount"`
+}
+
+type GroupBreakdown struct {
+	Group      string              `json:"group"`
+	Total      float64             `json:"total"`
+	Categories []CategoryBreakdown `json:"categories"`
+}
+
+func (h *SummaryHandler) GetExpenseBreakdown(w http.ResponseWriter, r *http.Request) {
+	now := time.Now()
+	monthParam := r.URL.Query().Get("month")
+	yearParam := r.URL.Query().Get("year")
+	userIDVal := r.Context().Value(middleware.UserIDKey)
+	userID, _ := userIDVal.(int)
+
+	month := int(now.Month())
+	year := now.Year()
+
+	if monthParam != "" {
+		if m, err := strconv.Atoi(monthParam); err == nil {
+			month = m
+		}
+	}
+
+	if yearParam != "" {
+		if y, err := strconv.Atoi(yearParam); err == nil {
+			year = y
+		}
+	}
+
+	rows, err := h.DB.Query(`
+		SELECT "group", category, COALESCE(SUM(amount), 0) as total
+		FROM expenses
+		WHERE EXTRACT(MONTH FROM date) = $1
+		AND EXTRACT(YEAR FROM date) = $2
+		AND user_id = $3
+		GROUP BY "group", category
+		ORDER BY "group", total DESC
+	`, month, year, userID)
+
+	if err != nil {
+		http.Error(w, "Erro ao buscar breakdown", http.StatusInternalServerError)
+		fmt.Println("Erro:", err)
+		return
+	}
+	defer rows.Close()
+
+	groupMap := make(map[string]*GroupBreakdown)
+
+	for rows.Next() {
+		var group, category string
+		var amount float64
+
+		if err := rows.Scan(&group, &category, &amount); err != nil {
+			continue
+		}
+
+		if groupMap[group] == nil {
+			groupMap[group] = &GroupBreakdown{
+				Group:      group,
+				Total:      0,
+				Categories: []CategoryBreakdown{},
+			}
+		}
+
+		groupMap[group].Total += amount
+		groupMap[group].Categories = append(groupMap[group].Categories, CategoryBreakdown{
+			Category: category,
+			Amount:   amount,
+		})
+	}
+
+	result := []GroupBreakdown{}
+	for _, gb := range groupMap {
+		result = append(result, *gb)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
 }

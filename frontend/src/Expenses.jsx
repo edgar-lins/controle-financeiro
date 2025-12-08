@@ -8,7 +8,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import "./styles/datepicker.css";
 import { formatCurrencyBR } from "./utils/format";
 import API_URL from "./config/api";
-import { CategorySelect } from "./components/CategorySelect";
+import { CategorySelect, CATEGORIES } from "./components/CategorySelect";
 import { CurrencyInput } from "./components/CurrencyInput";
 import { PageHeader } from "./components/PageHeader";
 import { ConfirmModal } from "./components/ConfirmModal";
@@ -48,6 +48,40 @@ const monthNames = [
   "Dezembro",
 ];
 
+const groupLabels = {
+  essencial: "Essenciais",
+  lazer: "Estilo de Vida",
+  investimento: "Investimento",
+};
+
+const groupStyles = {
+  essencial: {
+    bg: "bg-gradient-to-r from-blue-900/60 via-blue-800/40 to-blue-900/60",
+    border: "border-blue-500/40",
+    text: "text-blue-100",
+  },
+  lazer: {
+    bg: "bg-gradient-to-r from-purple-900/60 via-purple-800/40 to-purple-900/60",
+    border: "border-purple-500/40",
+    text: "text-purple-100",
+  },
+  investimento: {
+    bg: "bg-gradient-to-r from-emerald-900/60 via-emerald-800/40 to-emerald-900/60",
+    border: "border-emerald-500/40",
+    text: "text-emerald-100",
+  },
+};
+
+const chipBase = "inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold border shadow-[0_1px_0_rgba(255,255,255,0.04)] transition-colors duration-150";
+const chipNeutral = `${chipBase} bg-slate-800/70 border-slate-700 text-slate-100`;
+const chipSoft = `${chipBase} bg-slate-800/60 border-slate-700 text-slate-100`;
+const divider = "h-4 w-px bg-slate-800";
+
+const getCategoryLabel = (value) => {
+  const cat = CATEGORIES.find((c) => c.value === value);
+  return cat ? cat.label : value || "Sem categoria";
+};
+
 // Normalizar nome de forma de pagamento para exibição
 const getPaymentMethodLabel = (value) => {
   const option = paymentOptions.find(opt => opt.value === value);
@@ -63,6 +97,7 @@ export default function Expenses() {
     description: "",
     amount: "",
     category: "",
+    group: "",
     payment_method: "",
     date: "",
     account_id: "",
@@ -87,6 +122,7 @@ export default function Expenses() {
       description: expense.description,
       amount: expense.amount.toString(),
       category: expense.category || "",
+      group: expense.group || "",
       payment_method: expense.payment_method || "",
       date: dateStr,
       account_id: expense.account_id ? expense.account_id.toString() : "",
@@ -95,7 +131,7 @@ export default function Expenses() {
 
   function cancelEdit() {
     setEditingId(null);
-    setForm({ description: "", amount: "", category: "", payment_method: "", date: "", account_id: "" });
+    setForm({ description: "", amount: "", category: "", group: "", payment_method: "", date: "", account_id: "" });
   }
 
   // 🔹 Buscar lista de contas
@@ -281,7 +317,7 @@ export default function Expenses() {
         </div>
 
         {/* Form */}
-        <div className="md:col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-6 md:sticky md:top-6 md:self-start md:max-h-[calc(100vh-3rem)] md:overflow-y-auto">
+        <div className="md:col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-6 md:sticky md:top-6 md:self-start md:max-h-[calc(100vh-3rem)] md:overflow-y-auto custom-scrollbar">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <MdAttachMoney className="text-violet-400" /> 
             {editingId ? "Editar Gasto" : "Novo Gasto"}
@@ -310,10 +346,11 @@ export default function Expenses() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Categoria</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Categoria e Grupo</label>
               <CategorySelect
                 value={form.category}
-                onChange={(category) => setForm({ ...form, category })}
+                group={form.group}
+                onChange={({ category, group }) => setForm({ ...form, category, group })}
               />
             </div>
 
@@ -423,25 +460,41 @@ export default function Expenses() {
                           );
                         })()}
                         {/* Categoria */}
-                        {exp.category ? (
-                          <span>
-                            {exp.category === "fixo" && "Fixo"}
-                            {exp.category === "lazer" && "Lazer"}
-                            {exp.category === "investimento" && "Investimento"}
-                          </span>
-                        ) : "Sem categoria"}
+                        <span className={chipNeutral}>{getCategoryLabel(exp.category)}</span>
+
+                        {/* Grupo */}
+                        {(() => {
+                          const style = groupStyles[exp.group] || groupStyles.essencial;
+                          return (
+                            <span className={`${chipBase} ${style.bg} ${style.text} border ${style.border}`}>
+                              {groupLabels[exp.group] || "Essenciais"}
+                            </span>
+                          );
+                        })()}
                         {/* Forma de pagamento */}
-                        {exp.payment_method && (
-                          <span className="pl-2 border-l border-slate-700">{getPaymentMethodLabel(exp.payment_method)}</span>
-                        )}
+                        {exp.payment_method && (() => {
+                          const opt = paymentOptions.find((o) => o.value === exp.payment_method);
+                          return (
+                            <>
+                              <span className={divider} />
+                              <span className={chipSoft}>
+                                {opt?.icon}
+                                <span>{opt ? opt.label : getPaymentMethodLabel(exp.payment_method)}</span>
+                              </span>
+                            </>
+                          );
+                        })()}
                         {/* Conta utilizada */}
                         {exp.account_id && (() => {
                           const acc = accounts.find(a => a.id === parseInt(exp.account_id));
                           return acc ? (
-                            <span className="flex items-center gap-1 pl-2 border-l border-slate-800 text-violet-300 font-medium">
-                              <MdAccountBalanceWallet className="text-violet-400 text-base" />
-                              {acc.name}
-                            </span>
+                            <>
+                              <span className={divider} />
+                              <span className={`${chipSoft} border-purple-500/30 text-purple-100`}>
+                                <MdAccountBalanceWallet className="text-purple-300 text-base" />
+                                {acc.name}
+                              </span>
+                            </>
                           ) : null;
                         })()}
                       </div>

@@ -27,6 +27,7 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		Description   string  `json:"description"`
 		Amount        float64 `json:"amount"`
 		Category      string  `json:"category"`
+		Group         string  `json:"group"`
 		PaymentMethod string  `json:"payment_method"`
 		Date          string  `json:"date"`
 		AccountID     *int64  `json:"account_id"`
@@ -51,9 +52,20 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		Description:   req.Description,
 		Amount:        req.Amount,
 		Category:      req.Category,
+		Group:         req.Group,
 		PaymentMethod: req.PaymentMethod,
 		Date:          expenseDate,
 		AccountID:     req.AccountID,
+	}
+
+	// Default and validate group
+	if strings.TrimSpace(expense.Group) == "" {
+		expense.Group = "essencial"
+	}
+	switch expense.Group {
+	case "essencial", "lazer", "investimento":
+	default:
+		expense.Group = "essencial"
 	}
 
 	userIDVal := r.Context().Value(middleware.UserIDKey)
@@ -80,12 +92,12 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 
 	query := `
-		INSERT INTO expenses (description, amount, category, payment_method, date, user_id, account_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7) 
+		INSERT INTO expenses (description, amount, category, "group", payment_method, date, user_id, account_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
 		RETURNING id;
 	`
 
-	err = tx.QueryRow(query, expense.Description, expense.Amount, expense.Category, expense.PaymentMethod, expense.Date, userID, expense.AccountID).Scan(&expense.ID)
+	err = tx.QueryRow(query, expense.Description, expense.Amount, expense.Category, expense.Group, expense.PaymentMethod, expense.Date, userID, expense.AccountID).Scan(&expense.ID)
 	if err != nil {
 		http.Error(w, "Erro ao inserir gasto no banco", http.StatusInternalServerError)
 		fmt.Println("Erro:", err)
@@ -123,7 +135,7 @@ func (h *ExpenseHandler) GetExpenses(w http.ResponseWriter, r *http.Request) {
 	monthParam := r.URL.Query().Get("month")
 	yearParam := r.URL.Query().Get("year")
 
-	baseQuery := `SELECT id, description, amount, category, payment_method, date, account_id FROM expenses WHERE user_id = $1`
+	baseQuery := `SELECT id, description, amount, category, "group", payment_method, date, account_id FROM expenses WHERE user_id = $1`
 	args := []interface{}{userID}
 
 	if monthParam != "" {
@@ -151,7 +163,7 @@ func (h *ExpenseHandler) GetExpenses(w http.ResponseWriter, r *http.Request) {
 	var expenses []models.Expense
 	for rows.Next() {
 		var expense models.Expense
-		err := rows.Scan(&expense.ID, &expense.Description, &expense.Amount, &expense.Category, &expense.PaymentMethod, &expense.Date, &expense.AccountID)
+		err := rows.Scan(&expense.ID, &expense.Description, &expense.Amount, &expense.Category, &expense.Group, &expense.PaymentMethod, &expense.Date, &expense.AccountID)
 		if err != nil {
 			http.Error(w, "Erro ao ler dados do banco", http.StatusInternalServerError)
 			return
@@ -182,6 +194,7 @@ func (h *ExpenseHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		Description   string  `json:"description"`
 		Amount        float64 `json:"amount"`
 		Category      string  `json:"category"`
+		Group         string  `json:"group"`
 		PaymentMethod string  `json:"payment_method"`
 		Date          string  `json:"date"`
 		AccountID     *int64  `json:"account_id"`
@@ -206,9 +219,21 @@ func (h *ExpenseHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		Description:   req.Description,
 		Amount:        req.Amount,
 		Category:      req.Category,
+		Group:         req.Group,
 		PaymentMethod: req.PaymentMethod,
 		Date:          expenseDate,
 		AccountID:     req.AccountID,
+	}
+
+	if strings.TrimSpace(expense.Group) == "" {
+		expense.Group = "essencial"
+	}
+
+	// Guard invalid values to satisfy check constraint
+	switch expense.Group {
+	case "essencial", "lazer", "investimento":
+	default:
+		expense.Group = "essencial"
 	}
 
 	// Start transaction
@@ -229,8 +254,8 @@ func (h *ExpenseHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update expense
-	query := `UPDATE expenses SET description = $1, amount = $2, category = $3, payment_method = $4, date = $5, account_id = $6 WHERE id = $7 AND user_id = $8`
-	_, err = tx.Exec(query, expense.Description, expense.Amount, expense.Category, expense.PaymentMethod, expense.Date, expense.AccountID, id, userID)
+	query := `UPDATE expenses SET description = $1, amount = $2, category = $3, "group" = $4, payment_method = $5, date = $6, account_id = $7 WHERE id = $8 AND user_id = $9`
+	_, err = tx.Exec(query, expense.Description, expense.Amount, expense.Category, expense.Group, expense.PaymentMethod, expense.Date, expense.AccountID, id, userID)
 	if err != nil {
 		http.Error(w, "Erro ao atualizar gasto", http.StatusInternalServerError)
 		fmt.Println("Erro:", err)

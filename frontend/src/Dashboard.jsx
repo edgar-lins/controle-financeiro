@@ -6,6 +6,42 @@ import { formatCurrencyBR } from "./utils/format";
 import API_URL from "./config/api";
 import { ExportData } from "./components/ExportData";
 import { PageHeader } from "./components/PageHeader";
+import { CATEGORIES } from "./components/CategorySelect";
+
+// Map category label/value to its color class once at module scope
+const categoryColorMap = new Map(
+  CATEGORIES.flatMap((cat) => {
+    const entries = [];
+    const baseColor = cat.color || "";
+    if (cat.label) entries.push([cat.label.toLowerCase(), baseColor]);
+    if (cat.value) entries.push([cat.value.toLowerCase(), baseColor]);
+    return entries;
+  })
+);
+
+// Convert tailwind text-* color to a hex for safe inline usage (avoids purge issues)
+const colorClassToHex = (textClass) => {
+  const map = {
+    "text-blue-400": "#60a5fa",
+    "text-green-400": "#4ade80",
+    "text-yellow-400": "#facc15",
+    "text-orange-400": "#fb923c",
+    "text-red-400": "#f87171",
+    "text-indigo-400": "#818cf8",
+    "text-purple-400": "#c084fc",
+    "text-pink-400": "#f472b6",
+    "text-cyan-400": "#22d3ee",
+    "text-teal-400": "#2dd4bf",
+    "text-sky-400": "#38bdf8",
+    "text-amber-400": "#fbbf24",
+    "text-emerald-400": "#34d399",
+    "text-lime-400": "#a3e635",
+    "text-violet-400": "#a78bfa",
+    "text-rose-400": "#fb7185",
+    "text-gray-400": "#9ca3af",
+  };
+  return map[textClass] || null;
+};
 
 export default function Dashboard({ userName, getGreeting }) {
   const [summary, setSummary] = useState(null);
@@ -14,12 +50,19 @@ export default function Dashboard({ userName, getGreeting }) {
   const [unlinkedData, setUnlinkedData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [migrating, setMigrating] = useState(false);
+  const [breakdown, setBreakdown] = useState([]);
+  const [expandedGroups, setExpandedGroups] = useState({
+    essencial: true,
+    lazer: false,
+    investimento: false,
+  });
   const [month, setMonth] = useState("");
   const [year, setYear] = useState("");
   const [expandedSections, setExpandedSections] = useState({
     patrimonio: true,
-    distribuicao: false,
-    historico: false,
+    distribuicao: true,
+    historico: true,
+    categorias: true,
   });
   const [preferences, setPreferences] = useState({
     expenses_percent: 50,
@@ -32,6 +75,13 @@ export default function Dashboard({ userName, getGreeting }) {
     setExpandedSections(prev => ({
       ...prev,
       [section]: !prev[section]
+    }));
+  };
+
+  const toggleGroup = (group) => {
+    setExpandedGroups(prev => ({
+      ...prev,
+      [group]: !prev[group],
     }));
   };
 
@@ -67,6 +117,25 @@ export default function Dashboard({ userName, getGreeting }) {
       console.error("Erro ao buscar resumo:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchBreakdown = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (month) params.set("month", String(month));
+      if (year) params.set("year", String(year));
+      const apiUrl = API_URL || "http://localhost:8080";
+      const url = `${apiUrl}/summary/breakdown${params.toString() ? `?${params.toString()}` : ""}`;
+      const token = localStorage.getItem("token");
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setBreakdown(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Erro ao buscar breakdown:", error);
+      setBreakdown([]);
     }
   };
 
@@ -118,6 +187,7 @@ export default function Dashboard({ userName, getGreeting }) {
   useEffect(() => {
     fetchPreferences();
     fetchSummary();
+    fetchBreakdown();
     fetchMonthlyHistory();
     fetchAccounts();
     checkUnlinkedTransactions();
@@ -162,6 +232,44 @@ export default function Dashboard({ userName, getGreeting }) {
         <HiXCircle className="inline mr-1" /> Erro ao carregar dados
       </div>
     );
+
+  const breakdownMap = breakdown.reduce((acc, item) => {
+    acc[item.group] = item;
+    return acc;
+  }, {});
+
+  const groupMeta = {
+    essencial: {
+      key: "essencial",
+      label: "Essenciais",
+      icon: <HiHome className="text-blue-400" />,
+      ideal: summary.ideal_fixos || 0,
+      real: summary.real_fixos || 0,
+      percentLabel: `${preferences.expenses_percent.toFixed(0)}% do plano`,
+      categories: breakdownMap["essencial"]?.categories || [],
+      color: "blue",
+    },
+    lazer: {
+      key: "lazer",
+      label: "Estilo de Vida",
+      icon: <HiSparkles className="text-purple-400" />,
+      ideal: summary.ideal_lazer || 0,
+      real: summary.real_lazer || 0,
+      percentLabel: `${preferences.entertainment_percent.toFixed(0)}% do plano`,
+      categories: breakdownMap["lazer"]?.categories || [],
+      color: "purple",
+    },
+    investimento: {
+      key: "investimento",
+      label: "Investimento",
+      icon: <HiTrendingUp className="text-emerald-400" />,
+      ideal: summary.ideal_invest || 0,
+      real: summary.real_invest || 0,
+      percentLabel: `${preferences.investment_percent.toFixed(0)}% do plano`,
+      categories: breakdownMap["investimento"]?.categories || [],
+      color: "emerald",
+    },
+  };
 
   return (
     <div className="space-y-6">
@@ -307,12 +415,12 @@ export default function Dashboard({ userName, getGreeting }) {
             className="w-full text-left hover:opacity-80 transition-opacity"
           >
             <div className="relative">
-              <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+              <h2 className={`text-2xl font-bold text-white ${expandedSections.patrimonio ? 'mb-4' : 'mb-2'} flex items-center gap-2`}>
                 <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                 </svg>
                 Patrimônio Total
-                <HiChevronDown className={`ml-auto text-xl transition-transform ${expandedSections.patrimonio ? 'rotate-0' : '-rotate-90'}`} />
+                <HiChevronDown className={`ml-auto text-xl transition-transform text-slate-200 ${expandedSections.patrimonio ? 'rotate-0' : '-rotate-90'}`} />
               </h2>
               <div className="flex items-end justify-between">
                 <div>
@@ -425,10 +533,10 @@ export default function Dashboard({ userName, getGreeting }) {
           onClick={() => toggleSection('distribuicao')}
           className="w-full text-left hover:opacity-80 transition-opacity"
         >
-          <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+          <h2 className={`text-2xl font-bold text-white ${expandedSections.distribuicao ? 'mb-6' : 'mb-3'} flex items-center gap-2`}>
             <HiChartBar className="text-cyan-400" />
             Distribuição {preferences.expenses_percent.toFixed(0)} / {preferences.entertainment_percent.toFixed(0)} / {preferences.investment_percent.toFixed(0)}
-            <HiChevronDown className={`ml-auto text-xl transition-transform ${expandedSections.distribuicao ? 'rotate-0' : '-rotate-90'}`} />
+            <HiChevronDown className={`ml-auto text-xl transition-transform text-slate-300 ${expandedSections.distribuicao ? 'rotate-0' : '-rotate-90'}`} />
           </h2>
         </button>
         <div
@@ -436,24 +544,20 @@ export default function Dashboard({ userName, getGreeting }) {
           aria-hidden={!expandedSections.distribuicao}
         >
           <div className="space-y-4 pt-1">
-            <Category
-              icon={<HiHome className="text-blue-400" />}
-              name={`Despesas Fixas (${preferences.expenses_percent.toFixed(0)}%)`}
-              ideal={summary.ideal_fixos}
-              real={summary.real_fixos}
-            />
-            <Category
-              icon={<HiSparkles className="text-purple-400" />}
-              name={`Lazer & Diversão (${preferences.entertainment_percent.toFixed(0)}%)`}
-              ideal={summary.ideal_lazer}
-              real={summary.real_lazer}
-            />
-            <Category
-              icon={<HiTrendingUp className="text-emerald-400" />}
-              name={`Investimentos (${preferences.investment_percent.toFixed(0)}%)`}
-              ideal={summary.ideal_invest}
-              real={summary.real_invest}
-            />
+            {Object.values(groupMeta).map((group) => (
+              <GroupBreakdownCard
+                key={group.key}
+                icon={group.icon}
+                label={group.label}
+                ideal={group.ideal}
+                real={group.real}
+                categories={group.categories}
+                percentLabel={group.percentLabel}
+                color={group.color}
+                expanded={expandedGroups[group.key]}
+                onToggle={() => toggleGroup(group.key)}
+              />
+            ))}
           </div>
         </div>
       </div>
@@ -475,6 +579,100 @@ export default function Dashboard({ userName, getGreeting }) {
         </p>
       </div>
 
+      {/* Gastos por Categoria */}
+      {breakdown.length > 0 && (() => {
+        const allCategories = breakdown.flatMap(g => g.categories || []);
+        const categoryData = allCategories
+          .filter(cat => cat.amount > 0)
+          .sort((a, b) => b.amount - a.amount)
+          .map(cat => ({
+            name: cat.category,
+            value: cat.amount,
+            color: colorClassToHex(categoryColorMap.get(cat.category?.toLowerCase())) || "#9ca3af",
+          }));
+
+        return categoryData.length > 0 ? (
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+            <button
+              onClick={() => toggleSection('categorias')}
+              className="w-full text-left hover:opacity-80 transition-opacity"
+            >
+              <h2 className={`text-2xl font-bold text-white ${expandedSections.categorias ? 'mb-6' : 'mb-3'} flex items-center gap-2`}>
+                <HiChartBar className="text-cyan-400" />
+                Gastos por Categoria
+                <HiChevronDown className={`ml-auto text-xl transition-transform text-slate-200 ${expandedSections.categorias ? 'rotate-0' : '-rotate-90'}`} />
+              </h2>
+            </button>
+            <div
+              className={`collapsible-panel ${expandedSections.categorias ? "open" : ""}`}
+              aria-hidden={!expandedSections.categorias}
+            >
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Gráfico Pie */}
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={categoryData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {categoryData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value) => formatCurrencyBR(value)}
+                        contentStyle={{
+                          backgroundColor: "rgba(15, 23, 42, 0.95)",
+                          border: "1px solid rgba(255,255,255,0.2)",
+                          borderRadius: "8px",
+                          color: "white"
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Lista de Categorias */}
+                <div className="space-y-2 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
+                  {categoryData.map((cat) => {
+                    const totalExpenses = allCategories.reduce((sum, c) => sum + c.amount, 0);
+                    const percentage = totalExpenses > 0 ? ((cat.value / totalExpenses) * 100).toFixed(1) : 0;
+                    return (
+                      <div key={cat.name} className="bg-slate-800/60 border border-slate-700 p-3 rounded-lg">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }}></div>
+                          <span className="text-white font-semibold flex-1">{cat.name}</span>
+                          <span className="text-gray-400 font-bold">{percentage}%</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-400">
+                          <span>{formatCurrencyBR(cat.value)}</span>
+                        </div>
+                        <div className="w-full bg-slate-700 rounded-full h-2 mt-2 overflow-hidden">
+                          <div
+                            className="h-full rounded-full"
+                            style={{ 
+                              width: `${percentage}%`,
+                              backgroundColor: cat.color
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null;
+      })()}
+
       {/* Evolução Mensal */}
       {monthlyHistory.length > 0 && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
@@ -482,10 +680,10 @@ export default function Dashboard({ userName, getGreeting }) {
             onClick={() => toggleSection('historico')}
             className="w-full text-left hover:opacity-80 transition-opacity"
           >
-            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+            <h2 className={`text-2xl font-bold text-white ${expandedSections.historico ? 'mb-6' : 'mb-3'} flex items-center gap-2`}>
               <HiTrendingUp className="text-cyan-400" />
               Evolução dos Últimos 12 Meses
-              <HiChevronDown className={`ml-auto text-xl transition-transform ${expandedSections.historico ? 'rotate-0' : '-rotate-90'}`} />
+              <HiChevronDown className={`ml-auto text-xl transition-transform text-slate-300 ${expandedSections.historico ? 'rotate-0' : '-rotate-90'}`} />
             </h2>
           </button>
           <div
@@ -497,7 +695,10 @@ export default function Dashboard({ userName, getGreeting }) {
                 <BarChart data={monthlyHistory} margin={{ top: 20, right: 30, left: 0, bottom: 50 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
               <XAxis dataKey="month" stroke="rgb(209, 213, 219)" />
-              <YAxis stroke="rgb(209, 213, 219)" />
+              <YAxis stroke="rgb(209, 213, 219)" domain={[
+                Math.min(...monthlyHistory.map(m => Math.min(m.income || 0, m.expenses || 0, m.balance || 0))) * 1.1,
+                Math.max(...monthlyHistory.map(m => Math.max(m.income || 0, m.expenses || 0, m.balance || 0))) * 1.1
+              ]} />
               <Tooltip 
                 contentStyle={{ 
                   backgroundColor: "rgba(15, 23, 42, 0.95)", 
@@ -563,6 +764,89 @@ function Category({ icon, name, ideal, real }) {
         <span>R$ {real?.toFixed(2) || "0.00"}</span>
         <span>Limite: {formatCurrencyBR(ideal)}</span>
       </div>
+    </div>
+  );
+}
+
+function GroupBreakdownCard({ icon, label, ideal, real, categories, percentLabel, color, expanded, onToggle }) {
+  const perc = ideal > 0 ? ((real / ideal) * 100).toFixed(1) : 0;
+  const isOverBudget = perc > 100;
+  const isWarning = perc >= 80 && perc <= 100;
+  const isGood = perc < 80;
+
+  const colorMap = {
+    blue: {
+      bar: "bg-blue-500",
+      pill: "text-blue-300 bg-blue-500/10",
+      dot: "bg-blue-400",
+      dotHex: "#60a5fa",
+    },
+    purple: {
+      bar: "bg-purple-500",
+      pill: "text-purple-300 bg-purple-500/10",
+      dot: "bg-purple-400",
+      dotHex: "#c084fc",
+    },
+    emerald: {
+      bar: "bg-emerald-500",
+      pill: "text-emerald-300 bg-emerald-500/10",
+      dot: "bg-emerald-400",
+      dotHex: "#34d399",
+    }
+  };
+
+  const colors = colorMap[color] || colorMap.blue;
+
+  return (
+    <div className="bg-slate-800/60 border border-slate-700 rounded-lg p-4">
+      <button className="w-full text-left" onClick={onToggle}>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 text-white font-semibold">
+            {icon}
+            {label}
+          </div>
+          <span className={`text-xs px-2 py-1 rounded-full ${colors.pill}`}>
+            {percentLabel}
+          </span>
+          <HiChevronDown className={`ml-auto text-lg transition-transform text-slate-200 ${expanded ? "rotate-0" : "-rotate-90"}`} />
+        </div>
+        <div className="flex items-center gap-3 mb-2">
+          <div className="flex-1 bg-slate-700 rounded-full h-3 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-300 ${colors.bar}`}
+              style={{ width: `${Math.min(perc, 100)}%` }}
+            ></div>
+          </div>
+          <span className={`text-sm font-semibold ${isGood ? "text-emerald-400" : isWarning ? "text-yellow-400" : "text-red-400"}`}>
+            {perc}%
+          </span>
+        </div>
+        <div className="text-xs text-gray-400 flex justify-between mb-2">
+          <span>Real: {formatCurrencyBR(real)}</span>
+          <span>Planejado: {formatCurrencyBR(ideal)}</span>
+        </div>
+      </button>
+
+      {expanded && categories?.length > 0 && (
+        <div className="mt-3 border-t border-slate-700 pt-3">
+          <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+            {categories.map((cat) => {
+              const catPerc = real > 0 ? ((cat.amount / real) * 100).toFixed(1) : 0;
+              const mappedClass = categoryColorMap.get(cat.category?.toLowerCase());
+              const dotColorHex = colorClassToHex(mappedClass) || colors.dotHex;
+              return (
+                <div key={cat.category} className="flex items-center gap-2 text-sm text-gray-200">
+                  <div className="w-2 h-2 rounded-full bg-slate-500" style={{ backgroundColor: dotColorHex }}></div>
+                  <div className="flex-1 flex justify-between gap-3">
+                    <span className="truncate">{cat.category}</span>
+                    <span className="text-gray-400">{formatCurrencyBR(cat.amount)} ({catPerc}%)</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
