@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/edgar-lins/controle-financeiro/internal/middleware"
 	"github.com/edgar-lins/controle-financeiro/internal/models"
@@ -237,8 +238,8 @@ func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	_, err = h.DB.Exec(`DELETE FROM accounts WHERE id = $1 AND user_id = $2`, id, userID)
 	if err != nil {
 		log.Printf("delete account error user=%d id=%s err=%v", userID, id, err)
-		// Check if it's a foreign key constraint error
-		if err.Error() != "" {
+		// Só retorna 409 se for erro de constraint
+		if strings.Contains(err.Error(), "violates foreign key constraint") || strings.Contains(err.Error(), "constraint failed") {
 			http.Error(w, "Não é possível deletar essa conta. Verifique se há transações vinculadas.", http.StatusConflict)
 			return
 		}
