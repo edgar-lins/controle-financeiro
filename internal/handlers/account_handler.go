@@ -236,6 +236,12 @@ func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 
 	_, err = h.DB.Exec(`DELETE FROM accounts WHERE id = $1 AND user_id = $2`, id, userID)
 	if err != nil {
+		log.Printf("delete account error user=%d id=%s err=%v", userID, id, err)
+		// Check if it's a foreign key constraint error
+		if err.Error() != "" {
+			http.Error(w, "Não é possível deletar essa conta. Verifique se há transações vinculadas.", http.StatusConflict)
+			return
+		}
 		http.Error(w, "Erro ao deletar conta", http.StatusInternalServerError)
 		return
 	}
