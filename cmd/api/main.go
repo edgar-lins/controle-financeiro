@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -73,5 +72,8 @@ func main() {
 	handler := corsMiddleware(http.DefaultServeMux)
 
 	fmt.Printf("✅ Servidor rodando em http://localhost:%s\n", port)
-	log.Fatal(http.ListenAndServe(":"+port, handler))
+	err := http.ListenAndServe(":"+port, handler)
+	if err != nil {
+		panic("Erro ao iniciar servidor: " + err.Error())
+	}
 }

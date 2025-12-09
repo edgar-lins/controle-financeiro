@@ -3,7 +3,6 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
-	"log"
 	"net/http"
 	"strings"
 
@@ -83,14 +82,14 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	query := `UPDATE accounts SET name = $1, type = $2, balance = $3 WHERE id = $4 AND user_id = $5`
 	result, err := h.DB.Exec(query, acc.Name, acc.Type, acc.Balance, id, userID)
 	if err != nil {
-		log.Printf("update account exec error user=%d err=%v", userID, err)
+		// log removido para produção
 		http.Error(w, "Erro ao atualizar conta", http.StatusInternalServerError)
 		return
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil || rowsAffected == 0 {
-		log.Printf("update account no rows affected user=%d id=%s err=%v", userID, id, err)
+		// log removido para produção
 		http.Error(w, "Conta não encontrada", http.StatusNotFound)
 		return
 	}
@@ -114,7 +113,7 @@ func (h *AccountHandler) TransferFunds(w http.ResponseWriter, r *http.Request) {
 
 	var req transferRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("transfer decode error user=%d err=%v", userID, err)
+		// log removido para produção
 		http.Error(w, "Dados inválidos", http.StatusBadRequest)
 		return
 	}
@@ -139,7 +138,7 @@ func (h *AccountHandler) TransferFunds(w http.ResponseWriter, r *http.Request) {
 	if err := h.DB.QueryRow(`
 		SELECT COUNT(*) FROM accounts WHERE user_id = $1 AND id IN ($2, $3)
 	`, userID, req.FromAccountID, req.ToAccountID).Scan(&count); err != nil {
-		log.Printf("transfer account validation error user=%d err=%v", userID, err)
+		// log removido para produção
 		http.Error(w, "Erro ao validar contas", http.StatusInternalServerError)
 		return
 	}
@@ -153,7 +152,7 @@ func (h *AccountHandler) TransferFunds(w http.ResponseWriter, r *http.Request) {
 	if err := h.DB.QueryRow(`
 		SELECT balance FROM accounts WHERE user_id = $1 AND id = $2
 	`, userID, req.FromAccountID).Scan(&currentBalance); err != nil {
-		log.Printf("transfer balance query error user=%d err=%v", userID, err)
+		// log removido para produção
 		http.Error(w, "Erro ao calcular saldo", http.StatusInternalServerError)
 		return
 	}
@@ -166,7 +165,7 @@ func (h *AccountHandler) TransferFunds(w http.ResponseWriter, r *http.Request) {
 
 	tx, err := h.DB.Begin()
 	if err != nil {
-		log.Printf("transfer tx begin error user=%d err=%v", userID, err)
+		// log removido para produção
 		http.Error(w, "Erro ao iniciar transferência", http.StatusInternalServerError)
 		return
 	}
@@ -183,13 +182,13 @@ func (h *AccountHandler) TransferFunds(w http.ResponseWriter, r *http.Request) {
 		VALUES ($1, $2, $3, $4, $5, COALESCE(NULLIF($6,'')::date, CURRENT_DATE))
 	`, userID, req.FromAccountID, req.ToAccountID, req.Amount, req.Description, dateValue)
 	if err != nil {
-		log.Printf("transfer insert error user=%d err=%v", userID, err)
+		// log removido para produção
 		http.Error(w, "Erro ao registrar transferência", http.StatusInternalServerError)
 		return
 	}
 
 	if err := tx.Commit(); err != nil {
-		log.Printf("transfer tx commit error user=%d err=%v", userID, err)
+		// log removido para produção
 		http.Error(w, "Erro ao concluir transferência", http.StatusInternalServerError)
 		return
 	}
@@ -199,13 +198,13 @@ func (h *AccountHandler) TransferFunds(w http.ResponseWriter, r *http.Request) {
 	_, err = h.DB.Exec(`UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND user_id = $3`,
 		req.Amount, req.FromAccountID, userID)
 	if err != nil {
-		log.Printf("transfer update origin balance error user=%d err=%v", userID, err)
+		// log removido para produção
 	}
 
 	_, err = h.DB.Exec(`UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3`,
 		req.Amount, req.ToAccountID, userID)
 	if err != nil {
-		log.Printf("transfer update dest balance error user=%d err=%v", userID, err)
+		// log removido para produção
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -237,7 +236,7 @@ func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 
 	_, err = h.DB.Exec(`DELETE FROM accounts WHERE id = $1 AND user_id = $2`, id, userID)
 	if err != nil {
-		log.Printf("delete account error user=%d id=%s err=%v", userID, id, err)
+		// log removido para produção
 		// Só retorna 409 se for erro de constraint
 		if strings.Contains(err.Error(), "violates foreign key constraint") || strings.Contains(err.Error(), "constraint failed") {
 			http.Error(w, "Não é possível deletar essa conta. Verifique se há transações vinculadas.", http.StatusConflict)

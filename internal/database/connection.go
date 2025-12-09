@@ -44,12 +44,12 @@ func Connect() *sql.DB {
 
 	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
-		log.Fatal("Erro ao conectar no banco:", err)
+		panic("Erro ao conectar no banco: " + err.Error())
 	}
 
 	err = db.Ping()
 	if err != nil {
-		log.Fatal("Banco inacessível:", err)
+		panic("Banco inacessível: " + err.Error())
 	}
 
 	fmt.Println("✅ Conexão com o banco de dados estabelecida com sucesso!")
