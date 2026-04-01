@@ -1,20 +1,22 @@
-import { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, NavLink } from "react-router-dom";
 import { HiChartBar, HiCreditCard, HiCash, HiTrendingDown, HiLogout, HiCurrencyDollar, HiCog, HiMenu, HiX } from "react-icons/hi";
+import { SummaryProvider } from "./SummaryContext";
+import { useState, useEffect } from "react";
 import { FaBullseye } from "react-icons/fa";
+import Onboarding from "./Onboarding";
 import Dashboard from "./Dashboard";
 import Expenses from "./Expenses";
-import Incomes from "./Incomes";
-import Accounts from "./Accounts";
-import Goals from "./Goals";
 import Settings from "./Settings";
+import Accounts from "./Accounts";
+import Incomes from "./Incomes";
+import Goals from "./Goals";
 import Login from "./Login";
-import { SummaryProvider } from "./SummaryContext";
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [userName, setUserName] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [needsOnboarding, setNeedsOnboarding] = useState(localStorage.getItem("needsOnboarding") === "true");
 
   useEffect(() => {
     const stored = localStorage.getItem("token");
@@ -29,6 +31,7 @@ export default function App() {
     setToken(newToken);
     const firstName = localStorage.getItem("firstName");
     setUserName(firstName || "");
+    setNeedsOnboarding(localStorage.getItem("needsOnboarding") === "true");
   }
 
   function handleLogout() {
@@ -48,6 +51,17 @@ export default function App() {
 
   if (!token) {
     return <Login onLogin={handleLogin} />;
+  }
+
+  if (needsOnboarding) {
+    return (
+      <Onboarding 
+        onComplete={() => {
+          localStorage.removeItem("needsOnboarding");
+          setNeedsOnboarding(false);
+        }} 
+      />
+    );
   }
 
   return (
