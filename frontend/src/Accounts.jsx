@@ -1,110 +1,132 @@
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import { HiTrash, HiPencil, HiSwitchHorizontal, HiX, HiChevronDown, HiExclamationCircle } from "react-icons/hi";
-import { MdAttachMoney } from "react-icons/md";
+import { useSummary } from "./SummaryContext";
 import { formatCurrencyBR } from "./utils/format";
-import { AccountTypeSelect } from "./components/AccountTypeSelect";
 import { CurrencyInput } from "./components/CurrencyInput";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { Toast } from "./components/Toast";
-import { PageHeader } from "./components/PageHeader";
+import API_URL from "./config/api";
+
+// Função para tentar estilizar o cartão baseado no nome do banco
+function getAccountBrand(name, type) {
+  const n = name.toLowerCase();
+  if (n.includes("nu") || n.includes("roxinho")) return { bg: "bg-[#8A05BE]", icon: "Nu", isIcon: false, textColor: "text-white" };
+  if (n.includes("ita") || n.includes("itau")) return { bg: "bg-[#EC7000]", icon: "I", isIcon: false, textColor: "text-white" };
+  if (n.includes("inter")) return { bg: "bg-[#FF7A00]", icon: "In", isIcon: false, textColor: "text-white" };
+  if (n.includes("bradesco")) return { bg: "bg-[#CC092F]", icon: "B", isIcon: false, textColor: "text-white" };
+  if (n.includes("santander")) return { bg: "bg-[#CC0000]", icon: "S", isIcon: false, textColor: "text-white" };
+  if (n.includes("bb") || n.includes("brasil")) return { bg: "bg-[#F9D300]", icon: "BB", isIcon: false, textColor: "text-blue-900" };
+  if (n.includes("c6")) return { bg: "bg-[#242424]", icon: "C6", isIcon: false, textColor: "text-white" };
+  if (n.includes("caixa")) return { bg: "bg-[#005CA9]", icon: "CX", isIcon: false, textColor: "text-white" };
+  if (n.includes("xp")) return { bg: "bg-[#000000]", icon: "XP", isIcon: false, textColor: "text-yellow-400" };
+  
+  // Defaults baseados no tipo
+  if (type === "dinheiro" || n.includes("carteira") || n.includes("espécie")) return { bg: "bg-surface-container-highest", icon: "payments", isIcon: true, textColor: "text-primary" };
+  if (type === "investimento") return { bg: "bg-surface-container-highest", icon: "trending_up", isIcon: true, textColor: "text-tertiary-container" };
+  
+  return { bg: "bg-surface-container-highest", icon: "account_balance", isIcon: true, textColor: "text-secondary" };
+}
 
 export default function Accounts() {
   const [accounts, setAccounts] = useState([]);
-  const [form, setForm] = useState({ name: "", type: "corrente", balance: "" });
-  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [deleteModal, setDeleteModal] = useState({ isOpen: false, accountId: null, accountName: "" });
-  const [showTransferModal, setShowTransferModal] = useState(false);
-  const [transferForm, setTransferForm] = useState({
-    from_account_id: "",
-    to_account_id: "",
-    amount: "",
-    description: "",
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null, name: "" });
+
+  const { refreshSummary } = useSummary();
+
+  const [form, setForm] = useState({
+    name: "", type: "corrente", balance: "",
   });
 
-  const accountTypes = {
-    corrente: "Conta Corrente",
-    poupanca: "Poupança",
-    cartao: "Cartão de Crédito",
-    investimento: "Investimentos"
-  };
+  const [transferForm, setTransferForm] = useState({
+    from_account_id: "", to_account_id: "", amount: "",
+  });
+
+  useEffect(() => {
+    fetchAccounts();
+  }, []);
 
   async function fetchAccounts() {
     try {
       const token = localStorage.getItem("token");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
-      const res = await fetch(`${apiUrl}/accounts`, {
+      const res = await fetch(`${API_URL || "http://localhost:8080"}/accounts`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      console.log("Contas recebidas do backend:", data);
       setAccounts(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error("Erro:", error);
-      setAccounts([]);
+      console.error("Erro ao buscar contas:", error);
     }
-  }
-
-  function startEdit(account) {
-    console.log("Editando conta:", account);
-    setEditingId(account.id);
-    setForm({
-      name: account.name,
-      type: account.type,
-      balance: account.balance.toString(),
-    });
-  }
-
-  function cancelEdit() {
-    setEditingId(null);
-    setForm({ name: "", type: "corrente", balance: "" });
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
-
     try {
       const token = localStorage.getItem("token");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
-      const url = editingId 
-        ? `${apiUrl}/accounts/update?id=${editingId}`
-        : `${apiUrl}/accounts`;
+      const url = editingId ? `${API_URL || "http://localhost:8080"}/accounts/update?id=${editingId}` : `${API_URL || "http://localhost:8080"}/accounts`;
       
-      // Normaliza o valor para número, removendo separadores e trocando vírgula por ponto
-      const rawBalance = String(form.balance ?? "");
-      const normalizedBalance = rawBalance.replace(/\./g, "").replace(",", ".");
-      const balance = normalizedBalance === "" || normalizedBalance === "."
-        ? 0
-        : parseFloat(normalizedBalance);
       const payload = {
         name: form.name,
         type: form.type,
-        balance: balance,
       };
-      
-      console.log("Enviando payload:", payload);
-      
+
+      if (editingId) {
+        payload.balance = parseFloat(form.balance);
+      } else {
+        payload.opening_balance = parseFloat(form.balance) || 0;
+        payload.balance = parseFloat(form.balance) || 0;
+      }
+
       const res = await fetch(url, {
         method: editingId ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
       });
 
       if (res.ok) {
-        setToast({ show: true, message: editingId ? "Conta atualizada!" : "Conta adicionada!", type: "success" });
-        setForm({ name: "", type: "corrente", balance: "" });
-        setEditingId(null);
-        // Refresh accounts list
-        setTimeout(() => fetchAccounts(), 200);
+        setToast({ show: true, message: editingId ? "Conta atualizada!" : "Conta criada!", type: "success" });
+        closeModal();
+        refreshSummary();
+        fetchAccounts();
       } else {
-        setToast({ show: true, message: editingId ? "Erro ao atualizar conta" : "Erro ao adicionar conta", type: "error" });
+        setToast({ show: true, message: "Erro ao salvar", type: "error" });
       }
     } catch (error) {
-      console.error("Erro:", error);
+      setToast({ show: true, message: "Erro de conexão", type: "error" });
+    }
+  }
+
+  async function handleTransfer(e) {
+    e.preventDefault();
+    if (transferForm.from_account_id === transferForm.to_account_id) {
+      setToast({ show: true, message: "As contas devem ser diferentes", type: "error" });
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_URL || "http://localhost:8080"}/accounts/transfer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          from_account_id: parseInt(transferForm.from_account_id),
+          to_account_id: parseInt(transferForm.to_account_id),
+          amount: parseFloat(transferForm.amount),
+        }),
+      });
+
+      if (res.ok) {
+        setToast({ show: true, message: "Transferência realizada com sucesso!", type: "success" });
+        closeTransferModal();
+        refreshSummary();
+        fetchAccounts();
+      } else {
+        const errorData = await res.json();
+        setToast({ show: true, message: errorData.error || "Erro na transferência", type: "error" });
+      }
+    } catch (error) {
       setToast({ show: true, message: "Erro de conexão", type: "error" });
     }
   }
@@ -112,347 +134,306 @@ export default function Accounts() {
   async function deleteAccount(id) {
     try {
       const token = localStorage.getItem("token");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
-      const res = await fetch(`${apiUrl}/accounts/delete?id=${id}`, {
+      const res = await fetch(`${API_URL || "http://localhost:8080"}/accounts/delete?id=${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-
       if (res.ok) {
         setToast({ show: true, message: "Conta removida!", type: "success" });
+        refreshSummary();
         fetchAccounts();
-      } else if (res.status === 403) {
-        setToast({ show: true, message: "Não é possível deletar a Carteira Geral", type: "error" });
       } else {
-        setToast({ show: true, message: "Erro ao remover conta", type: "error" });
+        setToast({ show: true, message: "Erro ao excluir conta", type: "error" });
       }
     } catch (error) {
-      console.error("Erro:", error);
       setToast({ show: true, message: "Erro de conexão", type: "error" });
     }
-    setDeleteModal({ isOpen: false, accountId: null, accountName: "" });
+    setDeleteModal({ isOpen: false, id: null, name: "" });
   }
 
-  function openTransferFrom(fromId) {
-    setTransferForm({ from_account_id: String(fromId), to_account_id: "", amount: "", description: "" });
-    setShowTransferModal(true);
+  function openModal(account = null) {
+    if (account) {
+      setEditingId(account.id);
+      setForm({ name: account.name, type: account.type, balance: account.balance.toString() });
+    } else {
+      setEditingId(null);
+      setForm({ name: "", type: "corrente", balance: "" });
+    }
+    setIsModalOpen(true);
+  }
+
+  function closeModal() {
+    setIsModalOpen(false);
+    setEditingId(null);
+  }
+
+  function openTransferModal() {
+    setTransferForm({ from_account_id: "", to_account_id: "", amount: "" });
+    setIsTransferModalOpen(true);
   }
 
   function closeTransferModal() {
-    setShowTransferModal(false);
-    setTransferForm({ from_account_id: "", to_account_id: "", amount: "", description: "" });
+    setIsTransferModalOpen(false);
   }
 
-  async function handleTransfer(e) {
-    e.preventDefault();
-    if (!transferForm.amount || Number(transferForm.amount) <= 0) {
-      setToast({ show: true, message: "Informe um valor válido", type: "error" });
-      return;
-    }
-    if (transferForm.from_account_id === transferForm.to_account_id) {
-      setToast({ show: true, message: "Escolha contas diferentes", type: "error" });
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem("token");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
-      const payload = {
-        from_account_id: Number(transferForm.from_account_id),
-        to_account_id: Number(transferForm.to_account_id),
-        amount: Number(transferForm.amount),
-        description: transferForm.description,
-      };
-
-      const res = await fetch(`${apiUrl}/accounts/transfer`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || "Erro ao transferir");
-      }
-
-      setToast({ show: true, message: "Transferência realizada!", type: "success" });
-      setShowTransferModal(false);
-      setTransferForm({ from_account_id: "", to_account_id: "", amount: "", description: "" });
-      fetchAccounts();
-    } catch (error) {
-      setToast({ show: true, message: error.message || "Erro ao transferir", type: "error" });
-    }
-  }
-
-  useEffect(() => {
-    fetchAccounts();
-  }, []);
-
-  const totalBalance = accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
+  const totalNetWorth = accounts.reduce((sum, acc) => sum + acc.balance, 0);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <PageHeader 
-        title="Minhas Contas" 
-        subtitle="Gerencie suas contas"
-        description="Gerencie todas as suas contas bancárias, poupanças, contas de investimento e cartões de crédito. Visualize o saldo total e rastreie movimentações em cada conta. Os saldos das contas são utilizados para calcular o resumo financeiro."
-        colorClass="from-cyan-600 to-blue-600"
-      />
+    <div className="space-y-8 animate-fade-in relative z-10">
+      
+      {/* Header Section */}
+      <header className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 mb-8">
+        <div>
+          <h2 className="font-headline text-3xl md:text-4xl font-extrabold tracking-tight mb-2 text-white">Minhas Contas</h2>
+          <p className="text-secondary/60 font-medium">Gerencie suas conexões bancárias e carteiras físicas.</p>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={openTransferModal} className="flex items-center gap-2 px-5 py-2.5 bg-surface-container-high hover:bg-surface-container-highest text-on-surface rounded-full font-bold transition-transform active:scale-95 border border-outline-variant/30 shadow-sm">
+            <span className="material-symbols-outlined text-lg">sync_alt</span>
+            <span className="text-sm">Transferir</span>
+          </button>
+          <button onClick={() => openModal()} className="flex items-center gap-2 px-5 py-2.5 bg-primary text-on-primary rounded-full font-bold transition-transform hover:scale-105 active:scale-95 shadow-[0_12px_24px_-8px_rgba(90,240,179,0.4)]">
+            <span className="material-symbols-outlined text-lg">add</span>
+            <span className="text-sm">Nova Conta</span>
+          </button>
+        </div>
+      </header>
 
-      <div className="grid md:grid-cols-3 gap-6">
-        {/* Form - Criar/Editar Conta */}
-        <div className="md:col-span-1 md:sticky md:top-6 md:self-start md:max-h-[calc(100vh-6rem)] md:overflow-y-auto bg-slate-900 border border-slate-800 rounded-xl p-6">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <MdAttachMoney className="text-cyan-400" /> 
-            {editingId ? "Editar Conta" : "Adicionar Conta"}
-          </h2>
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Nome da conta</label>
-              <input
-                type="text"
-                placeholder="Ex: Conta Corrente"
-                className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg p-2 focus:border-cyan-400 focus:outline-none"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                required
-              />
+      {/* Summary Section (Bento Inspired) */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-12">
+        <div className="col-span-1 lg:col-span-8 bg-[rgba(45,52,73,0.4)] backdrop-blur-xl p-8 rounded-3xl border border-outline-variant/10 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[80px] rounded-full -mr-20 -mt-20"></div>
+          <div className="relative z-10">
+            <p className="text-secondary/60 text-sm font-label tracking-widest uppercase mb-1">Patrimônio Total</p>
+            <h3 className="text-4xl md:text-5xl font-black font-headline tracking-tighter text-on-surface mb-4">
+              {formatCurrencyBR(totalNetWorth)}
+            </h3>
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1 text-primary text-sm font-bold bg-primary/10 px-3 py-1 rounded-full">
+                <span className="material-symbols-outlined text-sm">account_balance</span>
+                {accounts.length} Contas Ativas
+              </span>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Tipo de conta</label>
-              <AccountTypeSelect 
-                value={form.type}
-                onChange={(type) => setForm({ ...form, type })}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Saldo inicial</label>
-              <CurrencyInput
-                className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg p-2 focus:border-cyan-400 focus:outline-none"
-                value={form.balance}
-                onChange={(val) => setForm({ ...form, balance: val })}
-              />
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 rounded-lg transition duration-200"
-              >
-                {editingId ? "Salvar" : "+ Adicionar Conta"}
-              </button>
-              {editingId && (
-                <button
-                  type="button"
-                  onClick={cancelEdit}
-                  className="px-4 bg-slate-600 hover:bg-slate-700 text-white font-semibold py-2 rounded-lg transition duration-200"
-                >
-                  Cancelar
-                </button>
-              )}
-            </div>
-          </form>
+          </div>
         </div>
 
-        {/* Lista de Contas */}
-        <div className="md:col-span-2">
-          <div className="mb-6 bg-gradient-to-r from-emerald-600 to-cyan-600 rounded-lg p-6 text-white">
-            <p className="text-emerald-100 text-sm font-medium">Saldo Total</p>
-            <p className="text-4xl font-bold mt-2">{formatCurrencyBR(totalBalance)}</p>
+        {/* Action Teaser */}
+        <div className="col-span-1 lg:col-span-4 bg-[rgba(45,52,73,0.4)] backdrop-blur-xl p-8 rounded-3xl border border-outline-variant/10 flex flex-col justify-between relative overflow-hidden group">
+          <div className="relative z-10">
+            <p className="text-secondary/60 text-sm font-label tracking-widest uppercase mb-2">Movimentação</p>
+            <h4 className="text-xl font-bold font-headline text-white mb-2">Transferência Rápida</h4>
+            <p className="text-secondary/60 text-xs leading-relaxed">Mova o saldo entre suas contas sem gerar uma nova despesa ou receita.</p>
           </div>
+          <button onClick={openTransferModal} className="relative z-10 w-full mt-6 bg-surface-container-highest hover:bg-primary/20 text-primary transition-colors py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 border border-primary/20">
+            Fazer Transferência <span className="material-symbols-outlined text-base">arrow_forward</span>
+          </button>
+        </div>
+      </section>
 
-          {accounts.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4">
-              {accounts.map((acc) => {
-                const isNegative = acc.balance < 0;
-                return (
-                  <div 
-                    key={acc.id} 
-                    className={`border rounded-xl p-4 shadow-sm hover:shadow-md transition duration-200 ${
-                      isNegative
-                        ? "bg-red-900/20 border-red-500/60"
-                        : "bg-slate-900 border-slate-800"
-                    }`}
-                  >
-                    <div className="flex justify-between items-start gap-3 flex-wrap">
-                      <div className="flex-1 min-w-[180px]">
-                        <h3 className="text-lg font-bold text-white">{acc.name}</h3>
-                        <p className="text-sm text-gray-400">{accountTypes[acc.type]}</p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => openTransferFrom(acc.id)}
-                          className="text-cyan-400 hover:text-cyan-300 transition duration-200 flex items-center justify-center p-2 min-w-[44px] min-h-[44px]"
-                          title="Transferir entre contas"
-                        >
-                          <HiSwitchHorizontal className="text-xl" />
-                        </button>
-                        <button
-                          onClick={() => startEdit(acc)}
-                          className="text-slate-400 hover:text-slate-300 transition duration-200 flex items-center justify-center p-2 min-w-[44px] min-h-[44px]"
-                          title="Editar conta"
-                        >
-                          <HiPencil className="text-xl" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteModal({ isOpen: true, accountId: acc.id, accountName: acc.name })}
-                          disabled={acc.name === "Carteira Geral"}
-                          className={`transition duration-200 flex items-center justify-center p-2 min-w-[44px] min-h-[44px] ${
-                            acc.name === "Carteira Geral"
-                              ? "text-gray-600 cursor-not-allowed opacity-50"
-                              : "text-red-400 hover:text-red-300"
-                          }`}
-                          title={acc.name === "Carteira Geral" ? "Não é possível deletar a Carteira Geral" : "Excluir conta"}
-                        >
-                          <HiTrash className="text-xl" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-slate-700">
-                      <p className={`text-2xl font-bold ${isNegative ? "text-red-300" : "text-slate-300"}`}>
-                        {formatCurrencyBR(acc.balance)}
-                      </p>
-                      {isNegative && (
-                        <p className="text-red-300 text-xs mt-2 flex items-center gap-1"><HiExclamationCircle /> Saldo negativo</p>
+      {/* Accounts Grid */}
+      <section className="mb-16">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-bold font-headline text-white">Instituições Conectadas</h3>
+        </div>
+        
+        {accounts.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {accounts.map((acc) => {
+              const brand = getAccountBrand(acc.name, acc.type);
+              
+              return (
+                <div key={acc.id} onClick={() => openModal(acc)} className="bg-surface-container-low/60 backdrop-blur-md p-6 rounded-3xl border border-outline-variant/10 hover:border-primary/40 transition-all duration-300 group cursor-pointer shadow-lg hover:shadow-[0_8px_32px_rgba(90,240,179,0.1)]">
+                  <div className="flex justify-between items-start mb-6">
+                    <div className={`w-12 h-12 rounded-2xl ${brand.bg} flex items-center justify-center ${brand.textColor} font-bold text-lg shadow-inner ring-1 ring-white/10`}>
+                      {brand.isIcon ? (
+                        <span className="material-symbols-outlined">{brand.icon}</span>
+                      ) : (
+                        brand.icon
                       )}
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="bg-white/5 border-2 border-dashed border-white/20 rounded-lg p-12 text-center">
-              <p className="text-gray-400 text-lg">Nenhuma conta cadastrada</p>
-              <p className="text-gray-500 text-sm mt-2">Crie sua primeira conta no formulário ao lado</p>
-            </div>
-          )}
-        </div>
-      </div>
+                  <p className="text-secondary/80 text-xs font-medium mb-1 truncate">{acc.name} • <span className="capitalize">{acc.type}</span></p>
+                  <h4 className={`text-xl font-bold mb-4 truncate ${acc.balance < 0 ? 'text-error' : 'text-primary'}`}>
+                    {formatCurrencyBR(acc.balance)}
+                  </h4>
+                  <div className="flex items-center justify-between text-[10px] text-secondary/40 font-medium">
+                    <span className="flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[12px]">edit</span> Editar
+                    </span>
+                    <span className="material-symbols-outlined text-sm group-hover:translate-x-1 group-hover:text-primary transition-all">arrow_forward</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="p-12 bg-surface-container-low/30 rounded-3xl border border-dashed border-outline-variant/20 text-center">
+            <span className="material-symbols-outlined text-5xl text-secondary/30 mb-3">account_balance</span>
+            <p className="text-secondary font-medium">Nenhuma conta cadastrada</p>
+            <p className="text-secondary/60 text-sm mt-1">Cadastre sua primeira conta para começar.</p>
+          </div>
+        )}
+      </section>
 
-      {showTransferModal && createPortal(
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] px-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 relative">
-            <button
-              onClick={closeTransferModal}
-              className="absolute top-3 right-3 text-slate-400 hover:text-white"
-              aria-label="Fechar"
-            >
-              <HiX className="text-xl" />
-            </button>
-            <div className="flex items-center gap-2 mb-4">
-              <HiSwitchHorizontal className="text-cyan-400 text-2xl" />
+      {/* Lista Detalhada (Ações rápidas) */}
+      {accounts.length > 0 && (
+        <section>
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold font-headline text-white">Gerenciar Contas</h3>
+          </div>
+          <div className="bg-surface-container-low/60 backdrop-blur-md rounded-3xl overflow-hidden border border-outline-variant/10 shadow-xl overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[600px]">
+              <thead>
+                <tr className="bg-surface-container-highest/30 text-[10px] font-label tracking-widest uppercase text-secondary/60 border-b border-outline-variant/5">
+                  <th className="px-8 py-5">Conta</th>
+                  <th className="px-8 py-5">Tipo</th>
+                  <th className="px-8 py-5 text-right">Saldo</th>
+                  <th className="px-8 py-5 text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-outline-variant/5">
+                {accounts.map(acc => {
+                  const brand = getAccountBrand(acc.name, acc.type);
+                  return (
+                    <tr key={`list-${acc.id}`} className="hover:bg-surface-container-high/40 transition-colors">
+                      <td className="px-8 py-5 flex items-center gap-4">
+                        <div className={`w-8 h-8 rounded-lg ${brand.bg} flex items-center justify-center text-[10px] ${brand.textColor} font-bold ring-1 ring-white/5 flex-shrink-0`}>
+                          {brand.isIcon ? <span className="material-symbols-outlined text-sm">{brand.icon}</span> : brand.icon}
+                        </div>
+                        <p className="font-bold text-sm text-white truncate max-w-[200px]">{acc.name}</p>
+                      </td>
+                      <td className="px-8 py-5">
+                        <span className="text-xs text-secondary/80 font-medium bg-surface-variant px-3 py-1 rounded-full capitalize">
+                          {acc.type}
+                        </span>
+                      </td>
+                      <td className={`px-8 py-5 text-right font-headline font-bold ${acc.balance < 0 ? 'text-error' : 'text-on-surface'}`}>
+                        {formatCurrencyBR(acc.balance)}
+                      </td>
+                      <td className="px-8 py-5">
+                        <div className="flex justify-center gap-2">
+                          <button onClick={() => openModal(acc)} className="p-2 hover:bg-surface-bright rounded-xl text-secondary hover:text-primary transition-colors" title="Editar">
+                            <span className="material-symbols-outlined text-lg">edit</span>
+                          </button>
+                          <button onClick={() => setDeleteModal({ isOpen: true, id: acc.id, name: acc.name })} className="p-2 hover:bg-error-container/20 rounded-xl text-secondary hover:text-error transition-colors" title="Excluir">
+                            <span className="material-symbols-outlined text-lg">delete</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* Modal Glassmorphism - Adicionar/Editar Conta */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-surface/80 backdrop-blur-sm" onClick={closeModal}></div>
+          <div className="relative bg-[#131b2e] border border-outline-variant/20 shadow-2xl rounded-[2rem] w-full max-w-lg p-6 md:p-8 animate-fade-in">
+            <h3 className="font-headline text-2xl font-bold text-white mb-6">
+              {editingId ? "Editar Conta" : "Nova Conta"}
+            </h3>
+            
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <h3 className="text-lg font-bold text-white">Transferir entre contas</h3>
-                <p className="text-sm text-slate-300">Movimente saldo entre contas sem registrar receita ou despesa.</p>
+                <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Nome da Conta / Instituição</label>
+                <input required type="text" placeholder="Ex: Nubank, Carteira..." className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-white rounded-xl p-3.5 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
               </div>
-            </div>
-            <form className="space-y-4" onSubmit={handleTransfer}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-slate-200 mb-2">Conta de origem</label>
-                  <div className="relative">
-                    <select
-                      className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg py-2 pl-3 pr-10 appearance-none focus:border-cyan-400 focus:outline-none focus:shadow-[0_0_0_2px_rgba(34,211,238,0.25)] transition"
-                      value={transferForm.from_account_id}
-                      onChange={(e) => setTransferForm({ ...transferForm, from_account_id: e.target.value })}
-                      required
-                    >
-                      <option value="">Selecione</option>
-                      {accounts.map((acc) => (
-                        <option key={`from-${acc.id}`} value={acc.id}>{acc.name}</option>
-                      ))}
-                    </select>
-                    <HiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm text-slate-200 mb-2">Conta de destino</label>
-                  <div className="relative">
-                    <select
-                      className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg py-2 pl-3 pr-10 appearance-none focus:border-cyan-400 focus:outline-none focus:shadow-[0_0_0_2px_rgba(34,211,238,0.25)] transition"
-                      value={transferForm.to_account_id}
-                      onChange={(e) => setTransferForm({ ...transferForm, to_account_id: e.target.value })}
-                      required
-                    >
-                      <option value="">Selecione</option>
-                      {accounts.map((acc) => (
-                        <option
-                          key={`to-${acc.id}`}
-                          value={acc.id}
-                          disabled={transferForm.from_account_id === String(acc.id)}
-                        >
-                          {acc.name}
-                        </option>
-                      ))}
-                    </select>
-                    <HiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                  </div>
+
+              <div>
+                <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Tipo de Conta</label>
+                <div className="relative">
+                  <select required className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-white rounded-xl p-3.5 focus:border-primary outline-none transition-all appearance-none" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+                    <option value="corrente" className="bg-surface">Conta Corrente</option>
+                    <option value="poupanca" className="bg-surface">Poupança</option>
+                    <option value="cartao" className="bg-surface">Cartão de Crédito</option>
+                    <option value="investimento" className="bg-surface">Investimentos</option>
+                    <option value="dinheiro" className="bg-surface">Dinheiro / Carteira</option>
+                  </select>
+                  <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary pointer-events-none">expand_more</span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-slate-200 mb-2">Valor</label>
-                  <CurrencyInput
-                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg py-2.5 px-4 focus:border-cyan-400 focus:outline-none"
-                    value={transferForm.amount}
-                    onChange={(val) => setTransferForm({ ...transferForm, amount: val })}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-slate-200 mb-2">Descrição (opcional)</label>
-                  <input
-                    type="text"
-                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg py-2.5 px-4"
-                    value={transferForm.description}
-                    onChange={(e) => setTransferForm({ ...transferForm, description: e.target.value })}
-                    placeholder="Ex: reserva de emergência"
-                  />
-                </div>
+              <div>
+                <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">
+                  {editingId ? "Ajustar Saldo Atual" : "Saldo Inicial"} (R$)
+                </label>
+                <CurrencyInput className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-primary font-headline font-bold text-xl rounded-xl p-3.5 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" value={form.balance} onChange={(val) => setForm({ ...form, balance: val })} />
+                <p className="text-[10px] text-secondary mt-1 ml-1">
+                  {editingId ? "O ajuste manual de saldo não cria uma transação no histórico." : "Este valor será o ponto de partida desta conta."}
+                </p>
               </div>
 
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={closeTransferModal}
-                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold shadow"
-                >
-                  Transferir
-                </button>
+              <div className="pt-4 flex gap-3">
+                <button type="button" onClick={closeModal} className="flex-1 py-3.5 rounded-xl font-bold text-secondary bg-surface-container-high hover:bg-surface-container-highest transition-colors">Cancelar</button>
+                <button type="submit" className="flex-1 py-3.5 rounded-xl font-bold text-on-primary bg-primary hover:bg-primary-container shadow-[0_4px_15px_rgba(90,240,179,0.3)] transition-all active:scale-95">{editingId ? "Salvar" : "Confirmar"}</button>
               </div>
             </form>
           </div>
         </div>
-      , document.body)}
+      )}
 
-      <ConfirmModal
-        isOpen={deleteModal.isOpen}
-        title="Excluir Conta"
-        message={`Tem certeza que deseja excluir a conta "${deleteModal.accountName}"? Esta ação não pode ser desfeita.`}
-        onConfirm={() => deleteAccount(deleteModal.accountId)}
-        onCancel={() => setDeleteModal({ isOpen: false, accountId: null, accountName: "" })}
-        confirmText="Excluir"
-        cancelText="Cancelar"
-        isDangerous={true}
-      />
+      {/* Modal Glassmorphism - Transferência */}
+      {isTransferModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-surface/80 backdrop-blur-sm" onClick={closeTransferModal}></div>
+          <div className="relative bg-[#131b2e] border border-outline-variant/20 shadow-2xl rounded-[2rem] w-full max-w-lg p-6 md:p-8 animate-fade-in">
+            <h3 className="font-headline text-2xl font-bold text-white mb-2 flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">sync_alt</span> Transferência
+            </h3>
+            <p className="text-sm text-secondary/80 mb-6">Mova dinheiro entre suas contas sem alterar seu patrimônio ou seus relatórios de gastos/rendas.</p>
+            
+            <form onSubmit={handleTransfer} className="space-y-5">
+              <div>
+                <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Valor da Transferência (R$)</label>
+                <CurrencyInput className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-on-surface font-headline font-bold text-xl rounded-xl p-3.5 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" value={transferForm.amount} onChange={(val) => setTransferForm({ ...transferForm, amount: val })} required />
+              </div>
 
-      {toast.show && createPortal(
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast({ show: false, message: "", type: "success" })}
-        />
-      , document.body)}
+              <div className="bg-surface-container-highest/20 p-4 rounded-2xl border border-outline-variant/5 space-y-4">
+                <div>
+                  <label className="block text-[10px] text-error font-bold uppercase tracking-wider mb-1 ml-1">Retirar de (Origem)</label>
+                  <div className="relative">
+                    <select required className="w-full bg-surface-container-highest/60 border border-outline-variant/10 text-white rounded-xl p-3 focus:border-error outline-none transition-all appearance-none" value={transferForm.from_account_id} onChange={(e) => setTransferForm({ ...transferForm, from_account_id: e.target.value })}>
+                      <option value="" className="bg-surface">Selecione a conta...</option>
+                      {accounts.map((acc) => (<option key={acc.id} value={acc.id} className="bg-surface">{acc.name} ({formatCurrencyBR(acc.balance)})</option>))}
+                    </select>
+                    <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary pointer-events-none">expand_more</span>
+                  </div>
+                </div>
+
+                <div className="flex justify-center -my-3 relative z-10">
+                  <div className="bg-surface-container-highest rounded-full p-1 border border-outline-variant/10">
+                    <span className="material-symbols-outlined text-secondary text-sm">arrow_downward</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-primary font-bold uppercase tracking-wider mb-1 ml-1">Enviar para (Destino)</label>
+                  <div className="relative">
+                    <select required className="w-full bg-surface-container-highest/60 border border-outline-variant/10 text-white rounded-xl p-3 focus:border-primary outline-none transition-all appearance-none" value={transferForm.to_account_id} onChange={(e) => setTransferForm({ ...transferForm, to_account_id: e.target.value })}>
+                      <option value="" className="bg-surface">Selecione a conta...</option>
+                      {accounts.map((acc) => (<option key={acc.id} value={acc.id} className="bg-surface">{acc.name} ({formatCurrencyBR(acc.balance)})</option>))}
+                    </select>
+                    <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary pointer-events-none">expand_more</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 flex gap-3">
+                <button type="button" onClick={closeTransferModal} className="flex-1 py-3.5 rounded-xl font-bold text-secondary bg-surface-container-high hover:bg-surface-container-highest transition-colors">Cancelar</button>
+                <button type="submit" className="flex-1 py-3.5 rounded-xl font-bold text-surface bg-on-surface hover:bg-white shadow-lg transition-all active:scale-95">Confirmar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <ConfirmModal isOpen={deleteModal.isOpen} title="Excluir Conta" message={`Atenção! Ao excluir a conta "${deleteModal.name}", TODAS as transações vinculadas a ela ficarão sem conta (órfãs) e seu patrimônio total será reduzido. Deseja mesmo continuar?`} onConfirm={() => deleteAccount(deleteModal.id)} onCancel={() => setDeleteModal({ isOpen: false, id: null, name: "" })} confirmText="Excluir Conta" isDangerous={true} />
+      {toast.show && <Toast message={toast.message} type={toast.type} onClose={() => setToast({ show: false, message: "", type: "success" })} />}
     </div>
   );
 }
