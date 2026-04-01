@@ -1,21 +1,33 @@
-import { BrowserRouter as Router, Routes, Route, NavLink } from "react-router-dom";
-import { HiChartBar, HiCreditCard, HiCash, HiTrendingDown, HiLogout, HiCurrencyDollar, HiCog, HiMenu, HiX } from "react-icons/hi";
-import { SummaryProvider } from "./SummaryContext";
 import { useState, useEffect } from "react";
-import { FaBullseye } from "react-icons/fa";
-import Onboarding from "./Onboarding";
+import { BrowserRouter as Router, Routes, Route, NavLink, useLocation } from "react-router-dom";
 import Dashboard from "./Dashboard";
 import Expenses from "./Expenses";
-import Settings from "./Settings";
-import Accounts from "./Accounts";
 import Incomes from "./Incomes";
+import Accounts from "./Accounts";
 import Goals from "./Goals";
+import Settings from "./Settings";
 import Login from "./Login";
+import Onboarding from "./Onboarding";
+import { SummaryProvider } from "./SummaryContext";
+
+// Componente auxiliar para os botões do menu inferior
+function BottomNavItem({ to, icon, label }) {
+  const location = useLocation();
+  const isActive = location.pathname === to;
+
+  return (
+    <NavLink to={to} className="flex flex-col items-center justify-center relative w-16 h-12 transition-all active:scale-90 duration-200">
+      <div className={`flex flex-col items-center justify-center transition-all ${isActive ? "text-primary bg-primary/10 rounded-xl px-4 py-1.5" : "text-secondary opacity-70 hover:opacity-100 hover:text-white"}`}>
+        <span className="material-symbols-outlined text-[22px]">{icon}</span>
+        <span className="font-label text-[9px] font-medium uppercase tracking-wider mt-0.5">{label}</span>
+      </div>
+    </NavLink>
+  );
+}
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [userName, setUserName] = useState("");
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [needsOnboarding, setNeedsOnboarding] = useState(localStorage.getItem("needsOnboarding") === "true");
 
   useEffect(() => {
@@ -38,6 +50,7 @@ export default function App() {
     localStorage.removeItem("token");
     localStorage.removeItem("firstName");
     localStorage.removeItem("lastName");
+    localStorage.removeItem("needsOnboarding");
     setToken(null);
     setUserName("");
   }
@@ -67,127 +80,31 @@ export default function App() {
   return (
     <SummaryProvider>
       <Router>
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-          {/* Navbar */}
-          <nav className="bg-white/10 backdrop-blur-md border-b border-white/10 sticky top-0 z-50">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex justify-between items-center h-16">
-                {/* Logo */}
-                <NavLink to="/" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0">
-                  <HiCurrencyDollar className="text-cyan-400 text-2xl md:text-3xl" />
-                  <span className="hidden sm:inline text-xl md:text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-                    FinControl
-                  </span>
-                </NavLink>
-
-                {/* Menu Hamburguês - Mobile */}
-                <button
-                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="md:hidden text-white text-2xl"
-                >
-                  {mobileMenuOpen ? <HiX /> : <HiMenu />}
-                </button>
-
-                {/* Menu Desktop */}
-                <div className="hidden md:flex gap-4 lg:gap-8 items-center">
-                  <NavLink className={({ isActive }) => `flex items-center gap-1 lg:gap-2 font-medium transition duration-200 pb-1 border-b-2 text-sm lg:text-base ${
-                    isActive ? "text-cyan-400 border-cyan-400" : "text-gray-300 border-transparent hover:text-white hover:border-gray-600"
-                  }`} to="/">
-                    <HiChartBar className="text-lg" />
-                    <span>Resumo</span>
-                  </NavLink>
-                  <NavLink className={({ isActive }) => `flex items-center gap-1 lg:gap-2 font-medium transition duration-200 pb-1 border-b-2 text-sm lg:text-base ${
-                    isActive ? "text-cyan-400 border-cyan-400" : "text-gray-300 border-transparent hover:text-white hover:border-gray-600"
-                  }`} to="/expenses">
-                    <HiTrendingDown className="text-lg" />
-                    <span>Gastos</span>
-                  </NavLink>
-                  <NavLink className={({ isActive }) => `flex items-center gap-1 lg:gap-2 font-medium transition duration-200 pb-1 border-b-2 text-sm lg:text-base ${
-                    isActive ? "text-cyan-400 border-cyan-400" : "text-gray-300 border-transparent hover:text-white hover:border-gray-600"
-                  }`} to="/incomes">
-                    <HiCash className="text-lg" />
-                    <span>Rendas</span>
-                  </NavLink>
-                  <NavLink className={({ isActive }) => `flex items-center gap-1 lg:gap-2 font-medium transition duration-200 pb-1 border-b-2 text-sm lg:text-base ${
-                    isActive ? "text-cyan-400 border-cyan-400" : "text-gray-300 border-transparent hover:text-white hover:border-gray-600"
-                  }`} to="/accounts">
-                    <HiCreditCard className="text-lg" />
-                    <span>Contas</span>
-                  </NavLink>
-                  <NavLink className={({ isActive }) => `flex items-center gap-1 lg:gap-2 font-medium transition duration-200 pb-1 border-b-2 text-sm lg:text-base ${
-                    isActive ? "text-cyan-400 border-cyan-400" : "text-gray-300 border-transparent hover:text-white hover:border-gray-600"
-                  }`} to="/goals">
-                    <FaBullseye className="text-lg" />
-                    <span>Metas</span>
-                  </NavLink>
-                  <NavLink className={({ isActive }) => `flex items-center gap-1 lg:gap-2 font-medium transition duration-200 pb-1 border-b-2 text-sm lg:text-base ${
-                    isActive ? "text-cyan-400 border-cyan-400" : "text-gray-300 border-transparent hover:text-white hover:border-gray-600"
-                  }`} to="/settings">
-                    <HiCog className="text-lg" />
-                    <span className="hidden lg:inline">Configurações</span>
-                  </NavLink>
-
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition duration-200"
-                  >
-                    <HiLogout />
-                    <span className="hidden lg:inline">Sair</span>
-                  </button>
-                </div>
+        <div className="min-h-screen bg-surface text-on-surface font-body pb-28 pt-20 selection:bg-primary/30">
+          
+          {/* TopAppBar Fixo */}
+          <header className="fixed top-0 left-0 w-full z-50 bg-[#0b1326]/70 backdrop-blur-xl flex justify-between items-center px-6 py-4 shadow-[0_8px_32px_0_rgba(90,240,179,0.08)] border-b border-white/5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full overflow-hidden bg-surface-container-high ring-2 ring-primary/20 flex items-center justify-center">
+                <span className="material-symbols-outlined text-primary">person</span>
               </div>
-
-              {/* Menu Mobile */}
-              {mobileMenuOpen && (
-                <div className="md:hidden pb-4 space-y-2">
-                  <NavLink onClick={() => setMobileMenuOpen(false)} className={({ isActive }) => `block px-3 py-2 rounded font-medium transition ${
-                    isActive ? "bg-cyan-400/20 text-cyan-400" : "text-gray-300 hover:bg-white/10"
-                  }`} to="/">
-                    <HiChartBar className="inline mr-2" /> Resumo
-                  </NavLink>
-                  <NavLink onClick={() => setMobileMenuOpen(false)} className={({ isActive }) => `block px-3 py-2 rounded font-medium transition ${
-                    isActive ? "bg-cyan-400/20 text-cyan-400" : "text-gray-300 hover:bg-white/10"
-                  }`} to="/expenses">
-                    <HiTrendingDown className="inline mr-2" /> Gastos
-                  </NavLink>
-                  <NavLink onClick={() => setMobileMenuOpen(false)} className={({ isActive }) => `block px-3 py-2 rounded font-medium transition ${
-                    isActive ? "bg-cyan-400/20 text-cyan-400" : "text-gray-300 hover:bg-white/10"
-                  }`} to="/incomes">
-                    <HiCash className="inline mr-2" /> Rendas
-                  </NavLink>
-                  <NavLink onClick={() => setMobileMenuOpen(false)} className={({ isActive }) => `block px-3 py-2 rounded font-medium transition ${
-                    isActive ? "bg-cyan-400/20 text-cyan-400" : "text-gray-300 hover:bg-white/10"
-                  }`} to="/accounts">
-                    <HiCreditCard className="inline mr-2" /> Contas
-                  </NavLink>
-                  <NavLink onClick={() => setMobileMenuOpen(false)} className={({ isActive }) => `block px-3 py-2 rounded font-medium transition ${
-                    isActive ? "bg-cyan-400/20 text-cyan-400" : "text-gray-300 hover:bg-white/10"
-                  }`} to="/goals">
-                    <FaBullseye className="inline mr-2" /> Metas
-                  </NavLink>
-                  <NavLink onClick={() => setMobileMenuOpen(false)} className={({ isActive }) => `block px-3 py-2 rounded font-medium transition ${
-                    isActive ? "bg-cyan-400/20 text-cyan-400" : "text-gray-300 hover:bg-white/10"
-                  }`} to="/settings">
-                    <HiCog className="inline mr-2" /> Configurações
-                  </NavLink>
-                  <button
-                    onClick={() => {
-                      handleLogout();
-                      setMobileMenuOpen(false);
-                    }}
-                    className="w-full text-left px-3 py-2 rounded font-medium bg-red-600 hover:bg-red-700 text-white transition"
-                  >
-                    <HiLogout className="inline mr-2" /> Sair
-                  </button>
-                </div>
-              )}
+              <div className="flex flex-col">
+                <span className="text-secondary text-[10px] font-medium uppercase tracking-widest">{getGreeting()}</span>
+                <span className="font-headline font-bold tracking-tight text-white">{userName}</span>
+              </div>
             </div>
-          </nav>
+            <div className="flex items-center gap-4">
+              <div className="text-xl font-black text-primary tracking-tighter hidden sm:block">ProsperFlow</div>
+              <button onClick={handleLogout} className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-[#2d3449]/40 transition-colors active:scale-95 transition-transform" title="Sair">
+                <span className="material-symbols-outlined text-error opacity-80 hover:opacity-100">logout</span>
+              </button>
+            </div>
+          </header>
 
-          {/* Main Content */}
-          <main className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 md:py-6 lg:py-8">
+          {/* Main Content Area */}
+          <main className="px-4 sm:px-6 max-w-4xl mx-auto space-y-8">
             <Routes>
-              <Route path="/" element={<Dashboard userName={userName} getGreeting={getGreeting} />} />
+              <Route path="/" element={<Dashboard userName={userName} />} />
               <Route path="/expenses" element={<Expenses />} />
               <Route path="/incomes" element={<Incomes />} />
               <Route path="/accounts" element={<Accounts />} />
@@ -195,6 +112,23 @@ export default function App() {
               <Route path="/settings" element={<Settings />} />
             </Routes>
           </main>
+
+          {/* FAB: Floating Action Button (Global) */}
+          <div className="fixed bottom-[100px] right-6 z-40">
+            <button className="w-14 h-14 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-[0_12px_24px_rgba(90,240,179,0.3)] hover:scale-105 active:scale-90 transition-transform">
+              <span className="material-symbols-outlined text-3xl font-bold">add</span>
+            </button>
+          </div>
+
+          {/* BottomNavBar */}
+          <nav className="fixed bottom-0 left-0 w-full flex justify-around items-center px-2 pb-6 pt-3 bg-[#2d3449]/80 backdrop-blur-2xl rounded-t-[1.5rem] z-50 shadow-[0_-4px_24px_rgba(0,0,0,0.4)] border-t border-white/5">
+            <BottomNavItem to="/" icon="home" label="Resumo" />
+            <BottomNavItem to="/expenses" icon="trending_down" label="Gastos" />
+            <BottomNavItem to="/incomes" icon="trending_up" label="Rendas" />
+            <BottomNavItem to="/accounts" icon="account_balance_wallet" label="Contas" />
+            <BottomNavItem to="/goals" icon="ads_click" label="Metas" />
+          </nav>
+
         </div>
       </Router>
     </SummaryProvider>

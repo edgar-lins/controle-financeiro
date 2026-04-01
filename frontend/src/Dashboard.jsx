@@ -1,876 +1,196 @@
 import { useEffect, useState } from "react";
 import { useSummary } from "./SummaryContext";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { HiChartBar, HiHome, HiSparkles, HiTrendingUp, HiCheckCircle, HiExclamation, HiChevronDown, HiInformationCircle, HiXCircle, HiExclamationCircle } from "react-icons/hi";
 import { formatCurrencyBR } from "./utils/format";
 import API_URL from "./config/api";
-import { ExportData } from "./components/ExportData";
-import { PageHeader } from "./components/PageHeader";
-import { CATEGORIES } from "./components/CategorySelect";
 
-// Map category label/value to its color class once at module scope
-const categoryColorMap = new Map(
-  CATEGORIES.flatMap((cat) => {
-    const entries = [];
-    const baseColor = cat.color || "";
-    if (cat.label) entries.push([cat.label.toLowerCase(), baseColor]);
-    if (cat.value) entries.push([cat.value.toLowerCase(), baseColor]);
-    return entries;
-  })
-);
-
-// Convert tailwind text-* color to a hex for safe inline usage (avoids purge issues)
-const colorClassToHex = (textClass) => {
-  const map = {
-    "text-blue-400": "#60a5fa",
-    "text-green-400": "#4ade80",
-    "text-yellow-400": "#facc15",
-    "text-orange-400": "#fb923c",
-    "text-red-400": "#f87171",
-    "text-indigo-400": "#818cf8",
-    "text-purple-400": "#c084fc",
-    "text-pink-400": "#f472b6",
-    "text-cyan-400": "#22d3ee",
-    "text-teal-400": "#2dd4bf",
-    "text-sky-400": "#38bdf8",
-    "text-amber-400": "#fbbf24",
-    "text-emerald-400": "#34d399",
-    "text-lime-400": "#a3e635",
-    "text-violet-400": "#a78bfa",
-    "text-rose-400": "#fb7185",
-    "text-gray-400": "#9ca3af",
-  };
-  return map[textClass] || null;
-};
-
-export default function Dashboard({ userName, getGreeting }) {
+export default function Dashboard({ userName }) {
   const [summary, setSummary] = useState(null);
-  const [monthlyHistory, setMonthlyHistory] = useState([]);
   const [accounts, setAccounts] = useState([]);
-  const [unlinkedData, setUnlinkedData] = useState(null);
+  const [recentActivities, setRecentActivities] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [migrating, setMigrating] = useState(false);
-  const [breakdown, setBreakdown] = useState([]);
-  const [expandedGroups, setExpandedGroups] = useState({
-    essencial: true,
-    lazer: false,
-    investimento: false,
-  });
-  const [month, setMonth] = useState("");
-  const [year, setYear] = useState("");
-  const [expandedSections, setExpandedSections] = useState({
-    patrimonio: true,
-    distribuicao: true,
-    historico: true,
-    categorias: true,
-  });
-  const [preferences, setPreferences] = useState({
-    expenses_percent: 50,
-    entertainment_percent: 30,
-    investment_percent: 20,
-  });
+  
   const { refreshKey } = useSummary();
 
-  const toggleSection = (section) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  };
-
-  const toggleGroup = (group) => {
-    setExpandedGroups(prev => ({
-      ...prev,
-      [group]: !prev[group],
-    }));
-  };
-
-  const fetchPreferences = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const apiUrl = API_URL || "http://localhost:8080";
-      const res = await fetch(`${apiUrl}/preferences`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      setPreferences(data);
-    } catch (error) {
-      console.error("Erro ao buscar preferências:", error);
-    }
-  };
-
-  const fetchSummary = async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (month) params.set("month", String(month));
-      if (year) params.set("year", String(year));
-      const apiUrl = API_URL || "http://localhost:8080";
-      const url = `${apiUrl}/summary${params.toString() ? `?${params.toString()}` : ""}`;
-      const token = localStorage.getItem("token");
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      setSummary(data);
-    } catch (error) {
-      console.error("Erro ao buscar resumo:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchBreakdown = async () => {
-    try {
-      const params = new URLSearchParams();
-      if (month) params.set("month", String(month));
-      if (year) params.set("year", String(year));
-      const apiUrl = API_URL || "http://localhost:8080";
-      const url = `${apiUrl}/summary/breakdown${params.toString() ? `?${params.toString()}` : ""}`;
-      const token = localStorage.getItem("token");
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      setBreakdown(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Erro ao buscar breakdown:", error);
-      setBreakdown([]);
-    }
-  };
-
-  const fetchMonthlyHistory = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const apiUrl = API_URL || "http://localhost:8080";
-      const res = await fetch(`${apiUrl}/summary/history`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      setMonthlyHistory(data || []);
-    } catch (error) {
-      console.error("Erro ao buscar histórico mensal:", error);
-    }
-  };
-
-  const fetchAccounts = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const apiUrl = API_URL || "http://localhost:8080";
-      const res = await fetch(`${apiUrl}/accounts`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      setAccounts(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Erro ao buscar contas:", error);
-      setAccounts([]);
-    }
-  };
-
-  const checkUnlinkedTransactions = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const apiUrl = API_URL || "http://localhost:8080";
-      const res = await fetch(`${apiUrl}/migration/check`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (data.has_unlinked) {
-        setUnlinkedData(data);
-      }
-    } catch (error) {
-      console.error("Erro ao verificar transações não vinculadas:", error);
-    }
-  };
+  const currentMonthName = new Date().toLocaleString('pt-BR', { month: 'long' });
+  const capitalizedMonth = currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1);
 
   useEffect(() => {
-    fetchPreferences();
-    fetchSummary();
-    fetchBreakdown();
-    fetchMonthlyHistory();
-    fetchAccounts();
-    checkUnlinkedTransactions();
-  }, [refreshKey, month, year]);
+    async function fetchDashboardData() {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem("token");
+        const apiUrl = API_URL || "http://localhost:8080";
+        const headers = { Authorization: `Bearer ${token}` };
 
-  async function handleMigrateTransactions() {
-    try {
-      setMigrating(true);
-      const token = localStorage.getItem("token");
-      const apiUrl = API_URL || "http://localhost:8080";
-      const res = await fetch(`${apiUrl}/migration/migrate`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      if (res.ok) {
-        setUnlinkedData(null);
-        // Recarrega dados
-        window.location.reload();
+        // 1. Busca Resumo 50/30/20
+        const resSummary = await fetch(`${apiUrl}/summary`, { headers });
+        const dataSummary = await resSummary.json();
+        setSummary(dataSummary);
+
+        // 2. Busca Contas (Para o Patrimônio Total)
+        const resAccounts = await fetch(`${apiUrl}/accounts`, { headers });
+        const dataAccounts = await resAccounts.json();
+        setAccounts(Array.isArray(dataAccounts) ? dataAccounts : []);
+
+        // 3. Busca Atividades Recentes (Mesclando Gastos e Rendas)
+        const resExp = await fetch(`${apiUrl}/expenses`, { headers });
+        const exps = await resExp.json();
+        const expenses = Array.isArray(exps) ? exps.map(e => ({ ...e, type: 'expense' })) : [];
+
+        const resInc = await fetch(`${apiUrl}/incomes`, { headers });
+        const incs = await resInc.json();
+        const incomes = Array.isArray(incs) ? incs.map(i => ({ ...i, type: 'income' })) : [];
+
+        // Junta, ordena por data (mais recente primeiro) e pega os 5 últimos
+        const combined = [...expenses, ...incomes]
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .slice(0, 5);
+        
+        setRecentActivities(combined);
+
+      } catch (error) {
+        console.error("Erro ao buscar dados do dashboard:", error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Erro ao migrar transações:", error);
-      alert("Erro ao organizar transações. Tente novamente.");
-    } finally {
-      setMigrating(false);
     }
+
+    fetchDashboardData();
+  }, [refreshKey]);
+
+  if (loading || !summary) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+      </div>
+    );
   }
 
-
-  if (loading)
-    return (
-      <div className="flex items-center justify-center min-h-96">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mb-4"></div>
-          <p className="text-gray-300">Carregando seu resumo financeiro...</p>
-        </div>
-      </div>
-    );
-  if (!summary)
-    return (
-      <div className="bg-red-500/20 border border-red-500/50 text-red-200 p-6 rounded-lg text-center">
-        <HiXCircle className="inline mr-1" /> Erro ao carregar dados
-      </div>
-    );
-
-  const breakdownMap = breakdown.reduce((acc, item) => {
-    acc[item.group] = item;
-    return acc;
-  }, {});
-
-  const groupMeta = {
-    essencial: {
-      key: "essencial",
-      label: "Essenciais",
-      icon: <HiHome className="text-blue-400" />,
-      ideal: summary.ideal_fixos || 0,
-      real: summary.real_fixos || 0,
-      percentLabel: `${preferences.expenses_percent.toFixed(0)}% do plano`,
-      categories: breakdownMap["essencial"]?.categories || [],
-      color: "blue",
-    },
-    lazer: {
-      key: "lazer",
-      label: "Estilo de Vida",
-      icon: <HiSparkles className="text-purple-400" />,
-      ideal: summary.ideal_lazer || 0,
-      real: summary.real_lazer || 0,
-      percentLabel: `${preferences.entertainment_percent.toFixed(0)}% do plano`,
-      categories: breakdownMap["lazer"]?.categories || [],
-      color: "purple",
-    },
-    investimento: {
-      key: "investimento",
-      label: "Investimento",
-      icon: <HiTrendingUp className="text-emerald-400" />,
-      ideal: summary.ideal_invest || 0,
-      real: summary.real_invest || 0,
-      percentLabel: `${preferences.investment_percent.toFixed(0)}% do plano`,
-      categories: breakdownMap["investimento"]?.categories || [],
-      color: "emerald",
-    },
-  };
+  // Cálculos
+  const totalNetWorth = accounts.reduce((sum, acc) => sum + acc.balance, 0);
+  
+  // Progresso 50/30/20 (limitado a 100% para a barra visual)
+  const calcPerc = (real, ideal) => ideal > 0 ? Math.min((real / ideal) * 100, 100).toFixed(1) : 0;
+  const percNeeds = calcPerc(summary.real_fixos, summary.ideal_fixos);
+  const percWants = calcPerc(summary.real_lazer, summary.ideal_lazer);
+  const percSavings = calcPerc(summary.real_invest, summary.ideal_invest);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <PageHeader 
-        title="Resumo Financeiro" 
-        subtitle={`${summary.mes}/${summary.ano}`}
-        description="Visualize um resumo completo de suas finanças, incluindo receitas, despesas, saldo e distribuição de renda de acordo com suas preferências pessoais. Customize as porcentagens nas Configurações."
-        colorClass="from-blue-600 to-cyan-600"
-        greeting={
-          userName && getGreeting ? (
-            <p className="text-xs md:text-sm lg:text-base text-blue-100 m-0">
-              <span className="text-lg font-semibold text-blue-100">
-                {getGreeting()}, <span className="font-bold bg-gradient-to-r from-cyan-300 via-teal-300 to-emerald-400 bg-clip-text text-transparent animate-gradient bg-[length:200%_auto]">{userName}</span>!
+    <div className="space-y-8 animate-fade-in pb-10">
+      
+      {/* Net Worth Hero Card */}
+      <section className="relative overflow-hidden rounded-[2rem] p-8 bg-[rgba(45,52,73,0.4)] backdrop-blur-xl shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)] border border-white/5">
+        <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/10 rounded-full blur-[80px]"></div>
+        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-primary/5 rounded-full blur-[80px]"></div>
+        
+        <div className="relative z-10">
+          <div className="flex justify-between items-start mb-6">
+            <span className="text-secondary font-label text-sm font-medium tracking-wide">Patrimônio Total</span>
+            <span className="material-symbols-outlined text-primary/60 text-2xl">account_balance_wallet</span>
+          </div>
+          <h1 className="font-headline font-extrabold text-4xl md:text-5xl text-white tracking-tighter mb-2">
+            {formatCurrencyBR(totalNetWorth)}
+          </h1>
+          <div className="flex items-center gap-2">
+            <span className={`flex items-center text-sm font-semibold ${summary.saldo_restante >= 0 ? "text-primary" : "text-error"}`}>
+              <span className="material-symbols-outlined text-sm mr-1">
+                {summary.saldo_restante >= 0 ? "trending_up" : "trending_down"}
               </span>
-            </p>
-          ) : null
-        }
-      />
-
-      {/* Banner de Migração */}
-      {unlinkedData && (
-        <div className="bg-gradient-to-r from-orange-900/40 to-amber-900/40 border-2 border-orange-500/60 rounded-xl p-5 shadow-lg">
-          <div className="flex items-start gap-4">
-            <HiExclamation className="text-orange-400 text-3xl flex-shrink-0 mt-1" />
-            <div className="flex-1">
-              <h3 className="text-orange-300 font-bold text-lg mb-2">
-                Transações Não Vinculadas Detectadas
-              </h3>
-              <p className="text-orange-200 text-sm mb-3">
-                Você tem <strong>{unlinkedData.total_unlinked} transação(ões)</strong> ({unlinkedData.unlinked_incomes} rendas, {unlinkedData.unlinked_expenses} gastos) 
-                que não estão vinculadas a nenhuma conta. Isso pode causar inconsistência no seu patrimônio.
-              </p>
-              <p className="text-orange-100 text-xs mb-4">
-                💡 Vamos organizar? Clique abaixo para criar automaticamente uma "Carteira Geral" e vincular todas essas transações.
-              </p>
-              <button
-                onClick={handleMigrateTransactions}
-                disabled={migrating}
-                className="bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white font-semibold px-6 py-2.5 rounded-lg transition shadow-md flex items-center gap-2"
-              >
-                {migrating ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Organizando...
-                  </>
-                ) : (
-                  <>
-                    <HiCheckCircle className="text-xl" />
-                    Organizar Transações
-                  </>
-                )}
-              </button>
-            </div>
+              Saldo Mensal: {formatCurrencyBR(summary.saldo_restante)}
+            </span>
           </div>
         </div>
-      )}
+      </section>
 
-      {/* Filtros */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-        <div className="flex flex-wrap gap-4 items-end">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Mês</label>
-            <div className="relative">
-              <select
-                className="bg-gradient-to-br from-slate-800 to-slate-700 border border-slate-600 text-white rounded-lg py-2 pl-3 pr-12 w-40 appearance-none focus:border-cyan-400 focus:outline-none focus:shadow-[0_0_0_2px_rgba(34,211,238,0.25)] transition"
-                value={month}
-                onChange={(e) => setMonth(e.target.value)}
-              >
-                <option value="">Atual</option>
-                <option value="1">Janeiro</option>
-                <option value="2">Fevereiro</option>
-                <option value="3">Março</option>
-                <option value="4">Abril</option>
-                <option value="5">Maio</option>
-                <option value="6">Junho</option>
-                <option value="7">Julho</option>
-                <option value="8">Agosto</option>
-                <option value="9">Setembro</option>
-                <option value="10">Outubro</option>
-                <option value="11">Novembro</option>
-                <option value="12">Dezembro</option>
-              </select>
-              <HiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Ano</label>
-            <div className="relative">
-              <select
-                className="bg-gradient-to-br from-slate-800 to-slate-700 border border-slate-600 text-white rounded-lg py-2 pl-3 pr-12 w-32 appearance-none focus:border-cyan-400 focus:outline-none focus:shadow-[0_0_0_2px_rgba(34,211,238,0.25)] transition"
-                size="1"
-                value={year}
-                onChange={(e) => setYear(e.target.value)}
-              >
-                <option value="">Atual</option>
-                {Array.from({ length: 31 }, (_, i) => 2020 + i).map((y) => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
-              <HiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            </div>
-          </div>
-          <button
-            className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition duration-200"
-            onClick={() => { setMonth(""); setYear(""); }}
-          >
-            Limpar
-          </button>
+      {/* 50/30/20 Budget Tracking */}
+      <section className="space-y-6">
+        <div className="flex justify-between items-end">
+          <h2 className="font-headline font-bold text-2xl text-white">Orçamento 50/30/20</h2>
+          <span className="text-primary text-sm font-medium">{capitalizedMonth}</span>
         </div>
-      </div>
-
-      {/* Cards de Renda e Gastos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-gradient-to-br from-emerald-600 to-emerald-700 rounded-lg p-6 text-white shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-emerald-100 text-sm font-medium">Renda Total</p>
-              <p className="text-3xl font-bold mt-2">
-                {formatCurrencyBR(summary.renda_total)}
-              </p>
+        
+        <div className="space-y-6 bg-surface-container-low/50 backdrop-blur-md rounded-3xl p-6 md:p-8 border border-white/5 shadow-xl">
+          {/* Necessidades (50%) */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-on-surface font-semibold tracking-wide">Necessidades</span>
+              <span className="text-secondary font-medium">{formatCurrencyBR(summary.real_fixos)} / <span className="text-white/40">{formatCurrencyBR(summary.ideal_fixos)}</span></span>
             </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-red-600 to-red-700 rounded-lg p-6 text-white shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-red-100 text-sm font-medium">Gastos Totais</p>
-              <p className="text-3xl font-bold mt-2">
-                {formatCurrencyBR(summary.gasto_total)}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Widget Patrimônio */}
-      {accounts.length > 0 ? (
-        <div className="bg-gradient-to-br from-cyan-900 to-blue-900 border border-cyan-700 rounded-xl p-6 shadow-lg">
-          <button
-            onClick={() => toggleSection('patrimonio')}
-            className="w-full text-left hover:opacity-80 transition-opacity"
-          >
-            <div className="relative">
-              <h2 className={`text-2xl font-bold text-white ${expandedSections.patrimonio ? 'mb-4' : 'mb-2'} flex items-center gap-2`}>
-                <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                </svg>
-                Patrimônio Total
-                <HiChevronDown className={`ml-auto text-xl transition-transform text-slate-200 ${expandedSections.patrimonio ? 'rotate-0' : '-rotate-90'}`} />
-              </h2>
-              <div className="flex items-end justify-between">
-                <div>
-                  <p className="text-cyan-200 text-sm font-medium">Soma de todas as contas</p>
-                  <p className="text-4xl font-bold text-white mt-2">
-                    {formatCurrencyBR(accounts.reduce((sum, acc) => sum + acc.balance, 0))}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </button>
-
-          <div
-            className={`collapsible-panel ${expandedSections.patrimonio ? "open" : ""}`}
-            aria-hidden={!expandedSections.patrimonio}
-          >
-            <div className="mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
-                {accounts
-                  .sort((a, b) => {
-                    // Carteira Geral sempre primeiro
-                    if (a.name === "Carteira Geral") return -1;
-                    if (b.name === "Carteira Geral") return 1;
-                // Depois ordena alfabeticamente
-                return a.name.localeCompare(b.name);
-              })
-              .map((acc) => {
-                const isNegative = acc.balance < 0;
-                const isCarteiraGeral = acc.name === "Carteira Geral";
-                const isCarteiraComSaldo = isCarteiraGeral && acc.balance > 0;
-
-                return (
-                  <div
-                    key={acc.id}
-                    className={`rounded-lg p-3 relative ${
-                      isNegative
-                        ? "bg-red-900/20 border-2 border-red-500/60"
-                        : isCarteiraComSaldo
-                        ? "bg-gradient-to-br from-emerald-900/40 to-teal-900/40 border-2 border-emerald-500/60"
-                        : "bg-slate-800/50 border border-cyan-800/30"
-                    }`}
-                  >
-                    {isNegative && (
-                      <div className="absolute top-2 right-2 text-red-400">
-                        <HiExclamation className="text-lg" />
-                      </div>
-                    )}
-                    <div className="flex items-start justify-between gap-2 pr-10">
-                      <div>
-                        <p className="text-cyan-300 text-xs font-medium uppercase">{acc.type}</p>
-                        <p className="text-white font-semibold mt-1">{acc.name}</p>
-                      </div>
-                    </div>
-                    <div className="absolute top-3 right-3">
-                      {isCarteiraGeral && (
-                        <InfoIcon tooltip="A Carteira Geral agrupa transações sem uma conta específica. Novos gastos/rendas sem conta selecionada vão para lá automaticamente." />
-                      )}
-                    </div>
-                    <p
-                      className={`text-lg font-bold mt-2 ${
-                        isNegative
-                          ? "text-red-300"
-                          : isCarteiraComSaldo
-                          ? "text-emerald-300"
-                          : "text-cyan-100"
-                      }`}
-                    >
-                      {formatCurrencyBR(acc.balance)}
-                    </p>
-                    {isNegative && (
-                      <p className="text-red-300 text-xs mt-2">
-                        <HiExclamationCircle className="inline mr-1" /> Saldo negativo - verifique suas transações
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-              </div>
-              <p className="text-cyan-300 text-xs mt-4 flex items-center gap-1">
-                <HiCheckCircle className="text-cyan-400" />
-                Este é o dinheiro real disponível em suas contas. Rendas e gastos atualizam automaticamente estes saldos.
-              </p>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-yellow-900/20 border-2 border-yellow-600/50 rounded-xl p-6">
-          <div className="flex items-start gap-3">
-            <HiExclamation className="text-yellow-500 text-2xl flex-shrink-0 mt-1" />
-            <div>
-              <h3 className="text-yellow-300 font-bold text-lg mb-2">💡 Dica: Cadastre suas contas!</h3>
-              <p className="text-yellow-200 text-sm mb-3">
-                Para um controle financeiro completo, cadastre suas contas (banco, carteira, poupança, etc). 
-                Assim você saberá exatamente onde está cada centavo e poderá acompanhar seu patrimônio total.
-              </p>
-              <a 
-                href="/accounts" 
-                className="inline-block bg-yellow-600 hover:bg-yellow-700 text-white font-semibold px-4 py-2 rounded-lg transition"
-              >
-                Criar Primeira Conta
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Distribuição 50/30/20 */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-        <button
-          onClick={() => toggleSection('distribuicao')}
-          className="w-full text-left hover:opacity-80 transition-opacity"
-        >
-          <h2 className={`text-2xl font-bold text-white ${expandedSections.distribuicao ? 'mb-6' : 'mb-3'} flex items-center gap-2`}>
-            <HiChartBar className="text-cyan-400" />
-            Distribuição {preferences.expenses_percent.toFixed(0)} / {preferences.entertainment_percent.toFixed(0)} / {preferences.investment_percent.toFixed(0)}
-            <HiChevronDown className={`ml-auto text-xl transition-transform text-slate-300 ${expandedSections.distribuicao ? 'rotate-0' : '-rotate-90'}`} />
-          </h2>
-        </button>
-        <div
-          className={`collapsible-panel ${expandedSections.distribuicao ? "open" : ""}`}
-          aria-hidden={!expandedSections.distribuicao}
-        >
-          <div className="space-y-4 pt-1">
-            {Object.values(groupMeta).map((group) => (
-              <GroupBreakdownCard
-                key={group.key}
-                icon={group.icon}
-                label={group.label}
-                ideal={group.ideal}
-                real={group.real}
-                categories={group.categories}
-                percentLabel={group.percentLabel}
-                color={group.color}
-                expanded={expandedGroups[group.key]}
-                onToggle={() => toggleGroup(group.key)}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Saldo Restante */}
-      <div className={`rounded-lg p-6 text-white shadow-lg ${
-        summary.saldo_restante >= 0
-          ? "bg-gradient-to-br from-cyan-600 to-blue-600"
-          : "bg-gradient-to-br from-orange-600 to-red-600"
-      }`}>
-        <p className="text-blue-100 text-sm font-medium mb-2">Saldo Restante</p>
-        <p className="text-4xl font-bold">
-          {formatCurrencyBR(summary.saldo_restante)}
-        </p>
-        <p className="text-blue-100 text-sm mt-2 flex items-center gap-2">
-          {summary.saldo_restante >= 0
-            ? <><HiCheckCircle className="text-emerald-300" /> Você está no controle!</>
-            : <><HiExclamation className="text-orange-300" /> Gasto acima do planejado</>}
-        </p>
-      </div>
-
-      {/* Gastos por Categoria */}
-      {breakdown.length > 0 && (() => {
-        const allCategories = breakdown.flatMap(g => g.categories || []);
-        const categoryData = allCategories
-          .filter(cat => cat.amount > 0)
-          .sort((a, b) => b.amount - a.amount)
-          .map(cat => ({
-            name: cat.category,
-            value: cat.amount,
-            color: colorClassToHex(categoryColorMap.get(cat.category?.toLowerCase())) || "#9ca3af",
-          }));
-
-        return categoryData.length > 0 ? (
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-            <button
-              onClick={() => toggleSection('categorias')}
-              className="w-full text-left hover:opacity-80 transition-opacity"
-            >
-              <h2 className={`text-2xl font-bold text-white ${expandedSections.categorias ? 'mb-6' : 'mb-3'} flex items-center gap-2`}>
-                <HiChartBar className="text-cyan-400" />
-                Gastos por Categoria
-                <HiChevronDown className={`ml-auto text-xl transition-transform text-slate-200 ${expandedSections.categorias ? 'rotate-0' : '-rotate-90'}`} />
-              </h2>
-            </button>
-            <div
-              className={`collapsible-panel ${expandedSections.categorias ? "open" : ""}`}
-              aria-hidden={!expandedSections.categorias}
-            >
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Gráfico Pie */}
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={categoryData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        outerRadius={100}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {categoryData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value) => formatCurrencyBR(value)}
-                        contentStyle={{
-                          backgroundColor: "rgba(15, 23, 42, 0.95)",
-                          border: "1px solid rgba(255,255,255,0.2)",
-                          borderRadius: "8px",
-                          color: "white"
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-
-                {/* Lista de Categorias */}
-                <div className="space-y-2 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
-                  {categoryData.map((cat) => {
-                    const totalExpenses = allCategories.reduce((sum, c) => sum + c.amount, 0);
-                    const percentage = totalExpenses > 0 ? ((cat.value / totalExpenses) * 100).toFixed(1) : 0;
-                    return (
-                      <div key={cat.name} className="bg-slate-800/60 border border-slate-700 p-3 rounded-lg">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }}></div>
-                          <span className="text-white font-semibold flex-1">{cat.name}</span>
-                          <span className="text-gray-400 font-bold">{percentage}%</span>
-                        </div>
-                        <div className="flex justify-between text-xs text-gray-400">
-                          <span>{formatCurrencyBR(cat.value)}</span>
-                        </div>
-                        <div className="w-full bg-slate-700 rounded-full h-2 mt-2 overflow-hidden">
-                          <div
-                            className="h-full rounded-full"
-                            style={{ 
-                              width: `${percentage}%`,
-                              backgroundColor: cat.color
-                            }}
-                          ></div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+            <div className="h-2.5 w-full bg-surface-container-highest rounded-full overflow-hidden shadow-inner">
+              <div className="h-full bg-primary rounded-full transition-all duration-1000 ease-out relative" style={{ width: `${percNeeds}%` }}>
+                <div className="absolute inset-0 bg-white/20"></div>
               </div>
             </div>
           </div>
-        ) : null;
-      })()}
 
-      {/* Evolução Mensal */}
-      {monthlyHistory.length > 0 && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-          <button
-            onClick={() => toggleSection('historico')}
-            className="w-full text-left hover:opacity-80 transition-opacity"
-          >
-            <h2 className={`text-2xl font-bold text-white ${expandedSections.historico ? 'mb-6' : 'mb-3'} flex items-center gap-2`}>
-              <HiTrendingUp className="text-cyan-400" />
-              Evolução dos Últimos 12 Meses
-              <HiChevronDown className={`ml-auto text-xl transition-transform text-slate-300 ${expandedSections.historico ? 'rotate-0' : '-rotate-90'}`} />
-            </h2>
-          </button>
-          <div
-            className={`collapsible-panel ${expandedSections.historico ? "open" : ""}`}
-            aria-hidden={!expandedSections.historico}
-          >
-            <div className="h-96">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyHistory} margin={{ top: 20, right: 30, left: 0, bottom: 50 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-              <XAxis dataKey="month" stroke="rgb(209, 213, 219)" />
-              <YAxis stroke="rgb(209, 213, 219)" domain={[
-                Math.min(...monthlyHistory.map(m => Math.min(m.income || 0, m.expenses || 0, m.balance || 0))) * 1.1,
-                Math.max(...monthlyHistory.map(m => Math.max(m.income || 0, m.expenses || 0, m.balance || 0))) * 1.1
-              ]} />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: "rgba(15, 23, 42, 0.95)", 
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  borderRadius: "8px",
-                  color: "white"
-                }}
-                formatter={(value) => `R$ ${value.toFixed(2)}`}
-              />
-              <Legend 
-                iconType="circle"
-                iconSize={6}
-                align="center"
-                verticalAlign="bottom"
-                formatter={(value) => <span style={{ verticalAlign: "middle" }}>{value}</span>}
-                wrapperStyle={{ marginTop: "65px" }}
-              />
-              <Bar dataKey="income" fill="#10b981" name="Renda" />
-              <Bar dataKey="expenses" fill="#ef4444" name="Gastos" />
-              <Bar dataKey="balance" fill="#06b6d4" name="Saldo" />
-                </BarChart>
-              </ResponsiveContainer>
+          {/* Desejos (30%) */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-on-surface font-semibold tracking-wide">Desejos</span>
+              <span className="text-secondary font-medium">{formatCurrencyBR(summary.real_lazer)} / <span className="text-white/40">{formatCurrencyBR(summary.ideal_lazer)}</span></span>
+            </div>
+            <div className="h-2.5 w-full bg-surface-container-highest rounded-full overflow-hidden shadow-inner">
+              <div className="h-full bg-primary/70 rounded-full transition-all duration-1000 ease-out" style={{ width: `${percWants}%` }}></div>
+            </div>
+          </div>
+
+          {/* Poupança (20%) */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-on-surface font-semibold tracking-wide">Investimento</span>
+              <span className="text-secondary font-medium">{formatCurrencyBR(summary.real_invest)} / <span className="text-white/40">{formatCurrencyBR(summary.ideal_invest)}</span></span>
+            </div>
+            <div className="h-2.5 w-full bg-surface-container-highest rounded-full overflow-hidden shadow-inner">
+              <div className="h-full bg-primary/40 rounded-full transition-all duration-1000 ease-out" style={{ width: `${percSavings}%` }}></div>
             </div>
           </div>
         </div>
-      )}
+      </section>
 
-      {/* Botões de Exportação */}
-      <div className="flex justify-center">
-        <ExportData />
-      </div>
-
-    </div>
-  );
-}
-
-// Componente para exibir cada categoria do 50/30/20
-function Category({ icon, name, ideal, real }) {
-  const perc = ideal > 0 ? ((real / ideal) * 100).toFixed(1) : 0;
-  const isOverBudget = perc > 100;
-  const isWarning = perc >= 80 && perc <= 100;
-  const isGood = perc < 80;
-
-  return (
-    <div className="bg-slate-700/50 border border-slate-600 p-4 rounded-lg">
-      <div className="flex justify-between items-center mb-3">
-        <p className="text-white font-semibold flex items-center gap-2">{icon} {name}</p>
-        <p className={`text-lg font-bold ${
-          isGood ? "text-emerald-400" : isWarning ? "text-yellow-400" : "text-red-400"
-        }`}>
-          {perc}%
-        </p>
-      </div>
-      <div className="w-full bg-slate-600 rounded-full h-3 overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all duration-300 ${
-            isGood ? "bg-emerald-500" : isWarning ? "bg-yellow-500" : "bg-red-500"
-          }`}
-          style={{ width: `${Math.min(perc, 100)}%` }}
-        ></div>
-      </div>
-      <div className="flex justify-between text-xs text-gray-400 mt-2">
-        <span>R$ {real?.toFixed(2) || "0.00"}</span>
-        <span>Limite: {formatCurrencyBR(ideal)}</span>
-      </div>
-    </div>
-  );
-}
-
-function GroupBreakdownCard({ icon, label, ideal, real, categories, percentLabel, color, expanded, onToggle }) {
-  const perc = ideal > 0 ? ((real / ideal) * 100).toFixed(1) : 0;
-  const isOverBudget = perc > 100;
-  const isWarning = perc >= 80 && perc <= 100;
-  const isGood = perc < 80;
-
-  const colorMap = {
-    blue: {
-      bar: "bg-blue-500",
-      pill: "text-blue-300 bg-blue-500/10",
-      dot: "bg-blue-400",
-      dotHex: "#60a5fa",
-    },
-    purple: {
-      bar: "bg-purple-500",
-      pill: "text-purple-300 bg-purple-500/10",
-      dot: "bg-purple-400",
-      dotHex: "#c084fc",
-    },
-    emerald: {
-      bar: "bg-emerald-500",
-      pill: "text-emerald-300 bg-emerald-500/10",
-      dot: "bg-emerald-400",
-      dotHex: "#34d399",
-    }
-  };
-
-  const colors = colorMap[color] || colorMap.blue;
-
-  return (
-    <div className="bg-slate-800/60 border border-slate-700 rounded-lg p-4">
-      <button className="w-full text-left" onClick={onToggle}>
-        <div className="flex items-center gap-2 mb-3">
-          <div className="flex items-center gap-2 text-white font-semibold">
-            {icon}
-            {label}
-          </div>
-          <span className={`text-xs px-2 py-1 rounded-full ${colors.pill}`}>
-            {percentLabel}
-          </span>
-          <HiChevronDown className={`ml-auto text-lg transition-transform text-slate-200 ${expanded ? "rotate-0" : "-rotate-90"}`} />
+      {/* Recent Activities Bento Layout */}
+      <section className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="font-headline font-bold text-2xl text-white">Atividades Recentes</h2>
         </div>
-        <div className="flex items-center gap-3 mb-2">
-          <div className="flex-1 bg-slate-700 rounded-full h-3 overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-300 ${colors.bar}`}
-              style={{ width: `${Math.min(perc, 100)}%` }}
-            ></div>
-          </div>
-          <span className={`text-sm font-semibold ${isGood ? "text-emerald-400" : isWarning ? "text-yellow-400" : "text-red-400"}`}>
-            {perc}%
-          </span>
-        </div>
-        <div className="text-xs text-gray-400 flex justify-between mb-2">
-          <span>Real: {formatCurrencyBR(real)}</span>
-          <span>Planejado: {formatCurrencyBR(ideal)}</span>
-        </div>
-      </button>
 
-      {expanded && categories?.length > 0 && (
-        <div className="mt-3 border-t border-slate-700 pt-3">
-          <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
-            {categories.map((cat) => {
-              const catPerc = real > 0 ? ((cat.amount / real) * 100).toFixed(1) : 0;
-              const mappedClass = categoryColorMap.get(cat.category?.toLowerCase());
-              const dotColorHex = colorClassToHex(mappedClass) || colors.dotHex;
+        {recentActivities.length > 0 ? (
+          <div className="grid grid-cols-1 gap-3">
+            {recentActivities.map((act) => {
+              const isIncome = act.type === 'income';
+              const dateObj = new Date(act.date);
+              // Corrige timezone se necessário
+              dateObj.setMinutes(dateObj.getMinutes() + dateObj.getTimezoneOffset());
+              const dateStr = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+
               return (
-                <div key={cat.category} className="flex items-center gap-2 text-sm text-gray-200">
-                  <div className="w-2 h-2 rounded-full bg-slate-500" style={{ backgroundColor: dotColorHex }}></div>
-                  <div className="flex-1 flex justify-between gap-3">
-                    <span className="truncate">{cat.category}</span>
-                    <span className="text-gray-400">{formatCurrencyBR(cat.amount)} ({catPerc}%)</span>
+                <div key={`${act.type}-${act.id}`} className="group flex items-center justify-between p-4 bg-surface-container-low/60 hover:bg-surface-container-high/80 rounded-2xl transition-all cursor-pointer border border-transparent hover:border-white/5">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${isIncome ? 'bg-primary/10 text-primary' : 'bg-tertiary-container/10 text-tertiary-container'}`}>
+                      <span className="material-symbols-outlined">
+                        {isIncome ? "payments" : "shopping_cart"}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-bold text-white text-sm md:text-base tracking-wide">{act.description}</p>
+                      <p className="text-secondary text-xs mt-0.5">{act.category || "Geral"} • {dateStr}</p>
+                    </div>
                   </div>
+                  <p className={`font-headline font-bold tracking-tight ${isIncome ? 'text-primary' : 'text-tertiary-container'}`}>
+                    {isIncome ? "+" : "-"} {formatCurrencyBR(act.amount)}
+                  </p>
                 </div>
               );
             })}
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
+        ) : (
+          <div className="bg-surface-container-low/50 rounded-3xl p-10 text-center border border-white/5">
+            <span className="material-symbols-outlined text-secondary/30 text-5xl mb-3">receipt_long</span>
+            <p className="text-secondary font-medium">Nenhuma movimentação recente</p>
+            <p className="text-secondary/60 text-sm mt-1">Sua lista de atividades aparecerá aqui.</p>
+          </div>
+        )}
+      </section>
 
-function InfoIcon({ tooltip }) {
-  const [showTooltip, setShowTooltip] = useState(false);
-
-  return (
-    <div className="relative inline-block">
-      <button
-        type="button"
-        className="text-cyan-300 hover:text-cyan-100 transition-colors focus:outline-none"
-        onMouseEnter={() => setShowTooltip(true)}
-        onMouseLeave={() => setShowTooltip(false)}
-        onClick={() => setShowTooltip(!showTooltip)}
-      >
-        <HiInformationCircle className="text-lg" />
-      </button>
-
-      {showTooltip && (
-        <div className="absolute left-8 top-1/2 transform -translate-y-1/2 w-48 bg-slate-900 text-cyan-100 text-xs rounded-lg shadow-xl border border-cyan-500/30 p-3 z-50 pointer-events-none">
-          {tooltip}
-        </div>
-      )}
     </div>
   );
 }
