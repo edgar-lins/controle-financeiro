@@ -1,159 +1,121 @@
 import { useEffect, useState } from "react";
-import { HiTrash, HiCalendar, HiPencil, HiPlus } from "react-icons/hi";
-import { MdAttachMoney } from "react-icons/md";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 import { formatCurrencyBR } from "./utils/format";
 import { CurrencyInput } from "./components/CurrencyInput";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { Toast } from "./components/Toast";
-import { PageHeader } from "./components/PageHeader";
-import "./styles/datepicker.css";
+import API_URL from "./config/api";
+
+// Ícones randômicos para dar um charme nas metas
+const goalIcons = ["flight_takeoff", "security", "directions_car", "home_repair_service", "school", "devices", "sports_esports"];
+
+function getRandomIcon(id) {
+  return goalIcons[id % goalIcons.length];
+}
 
 export default function Goals() {
   const [goals, setGoals] = useState([]);
   const [accounts, setAccounts] = useState([]);
-  const [form, setForm] = useState({
-    name: "",
-    target_amount: "",
-    current_amount: "",
-    deadline: "",
-  });
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+  
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [deleteModal, setDeleteModal] = useState({ isOpen: false, goalId: null, goalName: "" });
-  const [addMoneyModal, setAddMoneyModal] = useState({ isOpen: false, goalId: null, goalName: "", currentAmount: 0 });
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null, name: "" });
+  
+  const [addMoneyModal, setAddMoneyModal] = useState({ isOpen: false, id: null, name: "", currentAmount: 0 });
   const [addMoneyForm, setAddMoneyForm] = useState({ amount: "", account_id: "" });
+
+  const [form, setForm] = useState({
+    name: "", target_amount: "", current_amount: "", deadline: "",
+  });
+
+  useEffect(() => {
+    fetchGoals();
+    fetchAccounts();
+  }, []);
 
   async function fetchAccounts() {
     try {
       const token = localStorage.getItem("token");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
-      const res = await fetch(`${apiUrl}/accounts`, {
+      const res = await fetch(`${API_URL || "http://localhost:8080"}/accounts`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       setAccounts(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro ao buscar contas:", error);
-      setAccounts([]);
     }
   }
 
   async function fetchGoals() {
     try {
       const token = localStorage.getItem("token");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
-      const res = await fetch(`${apiUrl}/goals`, {
+      const res = await fetch(`${API_URL || "http://localhost:8080"}/goals`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       setGoals(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro:", error);
-      setGoals([]);
     }
   }
 
-  function startEdit(goal) {
-    setEditingId(goal.id);
-    const dateStr = goal.deadline ? new Date(goal.deadline).toISOString().split('T')[0] : "";
-    setForm({
-      name: goal.name,
-      target_amount: goal.target_amount.toString(),
-      current_amount: goal.current_amount.toString(),
-      deadline: dateStr,
-    });
-  }
+  async function handleSubmit(e) {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem("token");
+      const url = editingId ? `${API_URL || "http://localhost:8080"}/goals/update?id=${editingId}` : `${API_URL || "http://localhost:8080"}/goals`;
+      
+      const payload = {
+        ...form,
+        target_amount: parseFloat(form.target_amount),
+        current_amount: parseFloat(form.current_amount) || 0,
+      };
 
-  function cancelEdit() {
-    setEditingId(null);
-    setForm({ name: "", target_amount: "", current_amount: "", deadline: "" });
-  }
+      if (!payload.deadline) { delete payload.deadline; }
 
-  function openAddMoney(goal) {
-    setAddMoneyModal({ 
-      isOpen: true, 
-      goalId: goal.id, 
-      goalName: goal.name,
-      currentAmount: goal.current_amount 
-    });
-    setAddMoneyForm({ amount: "", account_id: "" });
+      const res = await fetch(url, {
+        method: editingId ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        setToast({ show: true, message: editingId ? "Meta atualizada!" : "Meta criada!", type: "success" });
+        closeModal();
+        fetchGoals();
+      } else {
+        setToast({ show: true, message: "Erro ao salvar meta", type: "error" });
+      }
+    } catch (error) {
+      setToast({ show: true, message: "Erro de conexão", type: "error" });
+    }
   }
 
   async function handleAddMoney() {
     if (!addMoneyForm.amount || !addMoneyForm.account_id) {
-      setToast({ show: true, message: "Preencha o valor e selecione a conta", type: "error" });
+      setToast({ show: true, message: "Preencha o valor e selecione a conta de origem", type: "error" });
       return;
     }
 
     try {
       const token = localStorage.getItem("token");
       const amount = parseFloat(addMoneyForm.amount);
-      const newCurrentAmount = addMoneyModal.currentAmount + amount;
 
-      // Update goal
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
-      const resGoal = await fetch(`${apiUrl}/goals/add-money?id=${addMoneyModal.goalId}`, {
+      const res = await fetch(`${API_URL || "http://localhost:8080"}/goals/add-money?id=${addMoneyModal.id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          amount: amount,
-          account_id: parseInt(addMoneyForm.account_id),
-        }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ amount: amount, account_id: parseInt(addMoneyForm.account_id) }),
       });
 
-      if (resGoal.ok) {
+      if (res.ok) {
         setToast({ show: true, message: `${formatCurrencyBR(amount)} adicionado à meta!`, type: "success" });
-        setAddMoneyModal({ isOpen: false, goalId: null, goalName: "", currentAmount: 0 });
-        setAddMoneyForm({ amount: "", account_id: "" });
+        closeAddMoneyModal();
         fetchGoals();
         fetchAccounts();
       } else {
         setToast({ show: true, message: "Erro ao adicionar valor", type: "error" });
       }
     } catch (error) {
-      console.error("Erro:", error);
-      setToast({ show: true, message: "Erro de conexão", type: "error" });
-    }
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-
-    try {
-      const token = localStorage.getItem("token");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
-      const url = editingId
-        ? `${apiUrl}/goals/update?id=${editingId}`
-        : `${apiUrl}/goals`;
-      
-      const res = await fetch(url, {
-        method: editingId ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          ...form,
-          target_amount: parseFloat(form.target_amount),
-          current_amount: parseFloat(form.current_amount) || 0,
-        }),
-      });
-
-      if (res.ok) {
-        setToast({ show: true, message: editingId ? "Meta atualizada!" : "Meta criada!", type: "success" });
-        setForm({ name: "", target_amount: "", current_amount: "", deadline: "" });
-        setEditingId(null);
-        fetchGoals();
-      } else {
-        setToast({ show: true, message: "Erro ao criar meta", type: "error" });
-      }
-    } catch (error) {
-      console.error("Erro:", error);
       setToast({ show: true, message: "Erro de conexão", type: "error" });
     }
   }
@@ -161,281 +123,278 @@ export default function Goals() {
   async function deleteGoal(id) {
     try {
       const token = localStorage.getItem("token");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
-      const res = await fetch(`${apiUrl}/goals/delete?id=${id}`, {
+      const res = await fetch(`${API_URL || "http://localhost:8080"}/goals/delete?id=${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-
       if (res.ok) {
         setToast({ show: true, message: "Meta removida!", type: "success" });
         fetchGoals();
-      } else {
-        setToast({ show: true, message: "Erro ao remover meta", type: "error" });
       }
     } catch (error) {
-      console.error("Erro:", error);
       setToast({ show: true, message: "Erro de conexão", type: "error" });
     }
-    setDeleteModal({ isOpen: false, goalId: null, goalName: "" });
+    setDeleteModal({ isOpen: false, id: null, name: "" });
   }
 
-  useEffect(() => {
-    fetchGoals();
-    fetchAccounts();
-  }, []);
+  function openModal(goal = null) {
+    if (goal) {
+      setEditingId(goal.id);
+      const dateStr = goal.deadline ? goal.deadline.split('T')[0] : "";
+      setForm({ name: goal.name, target_amount: goal.target_amount.toString(), current_amount: goal.current_amount.toString(), deadline: dateStr });
+    } else {
+      setEditingId(null);
+      setForm({ name: "", target_amount: "", current_amount: "", deadline: "" });
+    }
+    setIsModalOpen(true);
+  }
+
+  function closeModal() {
+    setIsModalOpen(false);
+    setEditingId(null);
+  }
+
+  function openAddMoneyModal(goal) {
+    setAddMoneyModal({ isOpen: true, id: goal.id, name: goal.name, currentAmount: goal.current_amount });
+    setAddMoneyForm({ amount: "", account_id: "" });
+  }
+
+  function closeAddMoneyModal() {
+    setAddMoneyModal({ isOpen: false, id: null, name: "", currentAmount: 0 });
+    setAddMoneyForm({ amount: "", account_id: "" });
+  }
+
+  // Cálculos Gerais
+  const totalSaved = goals.reduce((sum, g) => sum + g.current_amount, 0);
+  const totalTarget = goals.reduce((sum, g) => sum + g.target_amount, 0);
+  const globalProgress = totalTarget > 0 ? (totalSaved / totalTarget) * 100 : 0;
+  const availableBalance = accounts.reduce((sum, a) => sum + a.balance, 0); // Saldo disponível em contas para alocar
+
+  // Separa metas ativas das concluídas
+  const activeGoals = goals.filter(g => g.current_amount < g.target_amount);
+  const completedGoals = goals.filter(g => g.current_amount >= g.target_amount);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-12 animate-fade-in relative z-10 pb-10">
+      
       {/* Header */}
-      <PageHeader 
-        title="Metas Financeiras" 
-        subtitle="Acompanhe seus objetivos"
-        description="Defina e acompanhe suas metas financeiras. Estabeleça objetivos de curto e longo prazo, como economizar para férias, comprar uma casa ou aumentar sua reserva de emergência. Acompanhe o progresso em tempo real e veja quanto falta para atingir cada meta."
-        colorClass="from-purple-600 to-pink-600"
-      />
+      <header className="flex flex-col md:flex-row md:justify-between md:items-end gap-6">
+        <div>
+          <p className="text-primary font-headline font-bold tracking-widest uppercase text-xs mb-2">Finanças Pessoais</p>
+          <h2 className="text-4xl font-extrabold font-headline tracking-tight text-on-surface mb-2">Minhas Metas</h2>
+        </div>
+        <button onClick={() => openModal()} className="bg-primary hover:bg-primary-container text-on-primary font-bold px-8 py-3 rounded-full flex items-center justify-center gap-2 transition-all shadow-[0_12px_24px_rgba(90,240,179,0.15)] active:scale-95">
+          <span className="material-symbols-outlined text-[20px]">add</span> Nova Meta
+        </button>
+      </header>
 
-      <div className="grid md:grid-cols-3 gap-6">
-        {/* Form - Criar Meta */}
-        <div className="md:col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-6 md:sticky md:top-24">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <MdAttachMoney className="text-purple-400" /> 
-            {editingId ? "Editar Meta" : "Nova Meta"}
-          </h2>
-          <form onSubmit={handleSubmit} className="space-y-3">
+      {/* Observatory Summary Grid */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-[rgba(19,27,46,0.6)] backdrop-blur-xl rounded-3xl p-8 border border-outline-variant/10 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] -mr-32 -mt-32"></div>
+          <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Nome da meta</label>
-              <input
-                type="text"
-                placeholder="Ex: Viagem 2024"
-                className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg p-2 focus:border-purple-400 focus:outline-none"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                required
-              />
+              <p className="text-secondary text-sm font-medium mb-1">Total acumulado nas metas</p>
+              <h2 className="text-4xl md:text-5xl font-headline font-extrabold tracking-tighter text-on-surface">{formatCurrencyBR(totalSaved)}</h2>
             </div>
+            <div className="h-16 w-px bg-outline-variant/20 hidden md:block"></div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Valor objetivo</label>
-              <CurrencyInput
-                className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg p-2 focus:border-purple-400 focus:outline-none"
-                value={form.target_amount}
-                onChange={(val) => setForm({ ...form, target_amount: val })}
-                required
-              />
+              <p className="text-secondary text-sm font-medium mb-1">Saldo em Contas</p>
+              <h2 className="text-3xl font-headline font-bold tracking-tight text-secondary">{formatCurrencyBR(availableBalance)}</h2>
+              <p className="text-xs text-secondary/40 mt-1 italic">Disponível para transferir</p>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Valor atual</label>
-              <CurrencyInput
-                className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg p-2 focus:border-purple-400 focus:outline-none"
-                value={form.current_amount}
-                onChange={(val) => setForm({ ...form, current_amount: val })}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Prazo</label>
-              <div className="relative">
-                <DatePicker
-                  selected={form.deadline ? new Date(form.deadline) : null}
-                  onChange={(date) => {
-                    if (date) {
-                      const dateStr = date.toISOString().split('T')[0];
-                      setForm({ ...form, deadline: dateStr });
-                    }
-                  }}
-                  dateFormat="dd/MM/yyyy"
-                  minDate={new Date()}
-                  placeholderText="Selecione a data"
-                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg p-2 focus:border-purple-400 focus:outline-none"
-                  wrapperClassName="w-full"
-                />
-                <HiCalendar className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 rounded-lg transition duration-200"
-              >
-                {editingId ? "Salvar" : "+ Criar Meta"}
-              </button>
-              {editingId && (
-                <button
-                  type="button"
-                  onClick={cancelEdit}
-                  className="px-4 bg-slate-600 hover:bg-slate-700 text-white font-semibold py-2 rounded-lg transition duration-200"
-                >
-                  Cancelar
-                </button>
-              )}
-            </div>
-          </form>
+          </div>
         </div>
 
-        {/* Goals List */}
-        <div className="md:col-span-2">
-          {goals.length > 0 ? (
-            <div className="grid gap-4">
-              {goals.map((goal) => {
-                const progress = Math.min(goal.progress || 0, 100);
-                const daysLeft = goal.deadline
-                  ? Math.ceil((new Date(goal.deadline) - new Date()) / (1000 * 60 * 60 * 24))
-                  : null;
+        <div className="bg-[rgba(19,27,46,0.6)] backdrop-blur-xl rounded-3xl p-8 border border-outline-variant/10 flex flex-col justify-between">
+          <div>
+            <span className="material-symbols-outlined text-primary mb-4 text-3xl">speed</span>
+            <p className="text-secondary text-sm font-medium">Progresso Geral</p>
+          </div>
+          <div className="mt-4">
+            <div className="flex justify-between items-end mb-2">
+              <span className="text-3xl font-headline font-extrabold text-on-surface">{globalProgress.toFixed(0)}%</span>
+              <span className="text-secondary text-xs">{formatCurrencyBR(totalTarget)} Alvo Total</span>
+            </div>
+            <div className="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+              <div className="h-full bg-primary transition-all duration-1000 ease-out" style={{ width: `${Math.min(globalProgress, 100)}%` }}></div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-                return (
-                  <div key={goal.id} className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-sm hover:shadow-md transition duration-200">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="text-xl font-bold text-white">{goal.name}</h3>
-                        {goal.deadline && (
-                          <p className={`text-sm mt-1 flex items-center gap-1 ${daysLeft < 0 ? "text-red-400" : "text-gray-400"}`}>
-                            <HiCalendar className="text-base" />
-                            {daysLeft < 0
-                              ? `Prazo vencido há ${Math.abs(daysLeft)} dias`
-                              : daysLeft === 0
-                              ? `Prazo hoje!`
-                              : `${daysLeft} dias restantes`}
-                          </p>
-                        )}
+      {/* Active Goals Grid */}
+      <section>
+        <h3 className="text-xl font-headline font-bold mb-8 text-on-surface flex items-center gap-3">
+          <span className="w-8 h-[2px] bg-primary"></span> Metas Ativas
+        </h3>
+
+        {activeGoals.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {activeGoals.map(goal => {
+              const progress = Math.min((goal.current_amount / goal.target_amount) * 100, 100) || 0;
+              const dateStr = goal.deadline ? new Date(goal.deadline).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }) : "Sem Prazo";
+
+              return (
+                <div key={goal.id} className="bg-surface-container-low/60 backdrop-blur-md rounded-3xl p-6 flex flex-col transition-all hover:translate-y-[-4px] group border border-outline-variant/10 hover:border-primary/30 shadow-lg relative overflow-hidden">
+                  <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                  
+                  <div className="relative z-10">
+                    <div className="flex justify-between items-start mb-6">
+                      <div className="w-12 h-12 rounded-2xl bg-surface-container-high flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors shadow-inner">
+                        <span className="material-symbols-outlined">{getRandomIcon(goal.id)}</span>
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => openAddMoney(goal)}
-                          className="text-emerald-400 hover:text-emerald-300 transition duration-200 flex items-center justify-center gap-1 p-2 min-w-[44px] min-h-[44px] -m-2"
-                          title="Adicionar dinheiro"
-                        >
-                          <HiPlus className="text-xl" />
-                        </button>
-                        <button
-                          onClick={() => startEdit(goal)}
-                          className="text-slate-400 hover:text-slate-300 transition duration-200 flex items-center justify-center gap-1 p-2 min-w-[44px] min-h-[44px] -m-2"
-                          title="Editar meta"
-                        >
-                          <HiPencil className="text-xl" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteModal({ isOpen: true, goalId: goal.id, goalName: goal.name })}
-                          className="text-red-400 hover:text-red-300 transition duration-200 flex items-center justify-center gap-1 p-2 min-w-[44px] min-h-[44px] -m-2"
-                          title="Excluir meta"
-                        >
-                          <HiTrash className="text-xl" />
-                        </button>
-                      </div>
+                      <span className="text-secondary/60 text-[10px] font-bold uppercase tracking-widest bg-surface-container-highest px-3 py-1 rounded-full">{dateStr}</span>
+                    </div>
+                    
+                    <h4 className="text-xl font-headline font-bold text-white mb-1 truncate pr-8">{goal.name}</h4>
+                    
+                    {/* Botões de edição flutuantes */}
+                    <div className="absolute top-[68px] right-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-surface-container-low/80 pl-2 pb-2 rounded-bl-xl backdrop-blur-sm">
+                       <button onClick={() => openModal(goal)} className="text-secondary hover:text-primary p-1"><span className="material-symbols-outlined text-sm">edit</span></button>
+                       <button onClick={() => setDeleteModal({ isOpen: true, id: goal.id, name: goal.name })} className="text-secondary hover:text-error p-1"><span className="material-symbols-outlined text-sm">delete</span></button>
                     </div>
 
-                    {/* Progress Bar */}
-                    <div className="mb-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm text-gray-300">{formatCurrencyBR(goal.current_amount)} de {formatCurrencyBR(goal.target_amount)}</span>
-                        <span className="text-lg font-bold text-slate-300">
-                          {progress.toFixed(0)}%
-                        </span>
+                    <div className="space-y-4 mb-8 mt-6">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-secondary font-medium">{formatCurrencyBR(goal.current_amount)}</span>
+                        <span className="text-on-surface font-bold">{formatCurrencyBR(goal.target_amount)}</span>
                       </div>
-                      <div className="w-full bg-slate-700 rounded-full h-4 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            progress >= 100 ? "bg-emerald-500" : 
-                            progress >= 50 ? "bg-yellow-500" : 
-                            "bg-purple-500"
-                          }`}
-                          style={{ width: `${progress}%` }}
-                        ></div>
+                      <div className="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden shadow-inner">
+                        <div className="h-full bg-primary transition-all duration-1000 ease-out" style={{ width: `${progress}%` }}></div>
                       </div>
+                      <p className="text-[10px] text-right text-secondary/60 italic">{progress.toFixed(1)}% concluído</p>
                     </div>
+                    
+                    <button onClick={() => openAddMoneyModal(goal)} className="w-full py-4 bg-surface-container-high hover:bg-primary transition-all text-on-surface hover:text-on-primary font-bold rounded-xl text-sm flex items-center justify-center gap-2 active:scale-95">
+                      <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span> Transferir para Meta
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="p-12 bg-surface-container-low/30 rounded-3xl border border-dashed border-outline-variant/20 text-center">
+            <span className="material-symbols-outlined text-5xl text-secondary/30 mb-3">ads_click</span>
+            <p className="text-secondary font-medium">Nenhuma meta em andamento</p>
+            <p className="text-secondary/60 text-sm mt-1">Clique em "Nova Meta" para começar a investir nos seus sonhos.</p>
+          </div>
+        )}
+      </section>
 
-                    {/* Amount Remaining */}
-                    <div className="text-right">
-                      <p className="text-sm text-gray-400">Faltam</p>
-                      <p className="text-2xl font-bold text-slate-300">
-                        {formatCurrencyBR(Math.max(0, goal.target_amount - goal.current_amount))}
-                      </p>
+      {/* Completed Goals */}
+      {completedGoals.length > 0 && (
+        <section className="pt-8">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-xl font-headline font-bold text-on-surface flex items-center gap-3">
+              <span className="w-8 h-[2px] bg-secondary/30"></span> Metas Concluídas
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {completedGoals.map(goal => (
+              <div key={goal.id} className="flex items-center justify-between p-6 bg-surface-container-lowest/40 rounded-2xl border border-outline-variant/10 group hover:border-primary/30 transition-colors">
+                <div className="flex items-center gap-5">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+                    <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                  </div>
+                  <div>
+                    <h5 className="font-bold text-on-surface text-lg truncate max-w-[150px] sm:max-w-[200px]">{goal.name}</h5>
+                    <div className="flex gap-2 mt-1">
+                      <button onClick={() => openModal(goal)} className="text-[10px] text-secondary hover:text-primary transition-colors flex items-center gap-1"><span className="material-symbols-outlined text-[12px]">edit</span> Editar</button>
+                      <button onClick={() => setDeleteModal({ isOpen: true, id: goal.id, name: goal.name })} className="text-[10px] text-secondary hover:text-error transition-colors flex items-center gap-1"><span className="material-symbols-outlined text-[12px]">delete</span> Excluir</button>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="bg-white/5 border-2 border-dashed border-white/20 rounded-lg p-12 text-center">
-              <p className="text-gray-400 text-lg">Nenhuma meta cadastrada</p>
-              <p className="text-gray-500 text-sm mt-2">Crie sua primeira meta ao lado!</p>
-            </div>
-          )}
-        </div>
-      </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-primary text-lg">{formatCurrencyBR(goal.target_amount)}</p>
+                  <p className="text-[10px] text-secondary/60 font-bold uppercase tracking-widest mt-1 bg-surface-container-high px-2 py-0.5 rounded inline-block">100% Atingido</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
-      {/* Modal - Adicionar Dinheiro */}
-      {addMoneyModal.isOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
-          <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full border border-white/20">
-            <h3 className="text-xl font-bold text-white mb-4">Adicionar à Meta</h3>
-            <p className="text-gray-300 mb-4">{addMoneyModal.goalName}</p>
-            
-            <div className="space-y-4">
+      {/* Modal - Nova/Editar Meta */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-surface/80 backdrop-blur-sm" onClick={closeModal}></div>
+          <div className="relative bg-[#131b2e] border border-outline-variant/20 shadow-2xl rounded-[2rem] w-full max-w-lg p-6 md:p-8 animate-fade-in max-h-[90vh] overflow-y-auto no-scrollbar">
+            <h3 className="font-headline text-2xl font-bold text-white mb-6">
+              {editingId ? "Editar Meta" : "Nova Meta"}
+            </h3>
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Valor a adicionar</label>
-                <CurrencyInput
-                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg p-2 focus:border-purple-400 focus:outline-none"
-                  value={addMoneyForm.amount}
-                  onChange={(val) => setAddMoneyForm({ ...addMoneyForm, amount: val })}
-                  autoFocus
-                />
+                <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">O que você quer alcançar?</label>
+                <input required type="text" placeholder="Ex: Viagem, Carro Novo..." className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-white rounded-xl p-3.5 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Conta de origem</label>
-                <select
-                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg p-2 focus:border-purple-400 focus:outline-none"
-                  value={addMoneyForm.account_id}
-                  onChange={(e) => setAddMoneyForm({ ...addMoneyForm, account_id: e.target.value })}
-                >
-                  <option value="">Selecione a conta</option>
-                  {accounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name} - {formatCurrencyBR(acc.balance)}
-                    </option>
-                  ))}
-                </select>
+                <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Valor Alvo (R$)</label>
+                <CurrencyInput className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-primary font-headline font-bold text-xl rounded-xl p-3.5 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" value={form.target_amount} onChange={(val) => setForm({ ...form, target_amount: val })} required />
               </div>
-            </div>
 
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={handleAddMoney}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-              >
-                Adicionar
-              </button>
-              <button
-                onClick={() => {
-                  setAddMoneyModal({ isOpen: false, goalId: null, goalName: "", currentAmount: 0 });
-                  setAddMoneyForm({ amount: "", account_id: "" });
-                }}
-                className="flex-1 bg-slate-600 hover:bg-slate-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-              >
-                Cancelar
-              </button>
-            </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Já tem algo guardado?</label>
+                  <CurrencyInput className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-white rounded-xl p-3.5 focus:border-primary outline-none transition-all" value={form.current_amount} onChange={(val) => setForm({ ...form, current_amount: val })} />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Prazo (Opcional)</label>
+                  <input type="date" className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-white rounded-xl p-3.5 focus:border-primary outline-none transition-all [color-scheme:dark]" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} />
+                </div>
+              </div>
+
+              <div className="pt-4 flex gap-3">
+                <button type="button" onClick={closeModal} className="flex-1 py-3.5 rounded-xl font-bold text-secondary bg-surface-container-high hover:bg-surface-container-highest transition-colors">Cancelar</button>
+                <button type="submit" className="flex-1 py-3.5 rounded-xl font-bold text-on-primary bg-primary hover:bg-primary-container shadow-[0_4px_15px_rgba(90,240,179,0.3)] transition-all active:scale-95">{editingId ? "Salvar" : "Confirmar"}</button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
-      <ConfirmModal
-        isOpen={deleteModal.isOpen}
-        title="Excluir Meta"
-        message={`Tem certeza que deseja excluir a meta "${deleteModal.goalName}"? Esta ação não pode ser desfeita.`}
-        onConfirm={() => deleteGoal(deleteModal.goalId)}
-        onCancel={() => setDeleteModal({ isOpen: false, goalId: null, goalName: "" })}
-        confirmText="Excluir"
-        cancelText="Cancelar"
-        isDangerous={true}
-      />
+      {/* Modal - Adicionar Dinheiro */}
+      {addMoneyModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-surface/80 backdrop-blur-sm" onClick={closeAddMoneyModal}></div>
+          <div className="relative bg-[#131b2e] border border-outline-variant/20 shadow-2xl rounded-[2rem] w-full max-w-lg p-6 md:p-8 animate-fade-in">
+            <h3 className="font-headline text-2xl font-bold text-white mb-2 flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">account_balance_wallet</span> Investir na Meta
+            </h3>
+            <p className="text-sm text-secondary/80 mb-6 border-b border-outline-variant/10 pb-4">
+              Destino: <span className="text-white font-bold">{addMoneyModal.name}</span>
+            </p>
+            
+            <form className="space-y-5">
+              <div>
+                <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Valor a transferir (R$)</label>
+                <CurrencyInput className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-primary font-headline font-bold text-xl rounded-xl p-3.5 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" value={addMoneyForm.amount} onChange={(val) => setAddMoneyForm({ ...addMoneyForm, amount: val })} required autoFocus />
+              </div>
 
-      {toast.show && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast({ show: false, message: "", type: "success" })}
-        />
+              <div>
+                <label className="block text-[10px] text-error font-bold uppercase tracking-wider mb-1 ml-1">Retirar o dinheiro de qual conta?</label>
+                <div className="relative">
+                  <select required className="w-full bg-surface-container-highest/60 border border-outline-variant/10 text-white rounded-xl p-3.5 focus:border-error outline-none transition-all appearance-none" value={addMoneyForm.account_id} onChange={(e) => setAddMoneyForm({ ...addMoneyForm, account_id: e.target.value })}>
+                    <option value="" className="bg-surface">Selecione a conta...</option>
+                    {accounts.map((acc) => (<option key={acc.id} value={acc.id} className="bg-surface">{acc.name} ({formatCurrencyBR(acc.balance)})</option>))}
+                  </select>
+                  <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary pointer-events-none">expand_more</span>
+                </div>
+              </div>
+
+              <div className="pt-4 flex gap-3">
+                <button type="button" onClick={closeAddMoneyModal} className="flex-1 py-3.5 rounded-xl font-bold text-secondary bg-surface-container-high hover:bg-surface-container-highest transition-colors">Cancelar</button>
+                <button type="button" onClick={handleAddMoney} className="flex-1 py-3.5 rounded-xl font-bold text-on-primary bg-primary hover:bg-primary-container shadow-[0_4px_15px_rgba(90,240,179,0.3)] transition-all active:scale-95">Transferir</button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
+
+      <ConfirmModal isOpen={deleteModal.isOpen} title="Excluir Meta" message={`Deseja desistir da meta "${deleteModal.name}"? O dinheiro registrado nela não voltará automaticamente para suas contas.`} onConfirm={() => deleteGoal(deleteModal.id)} onCancel={() => setDeleteModal({ isOpen: false, id: null, name: "" })} confirmText="Sim, excluir" isDangerous={true} />
+      {toast.show && <Toast message={toast.message} type={toast.type} onClose={() => setToast({ show: false, message: "", type: "success" })} />}
     </div>
   );
 }
