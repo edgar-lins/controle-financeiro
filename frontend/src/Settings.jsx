@@ -1,19 +1,18 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { HiCheckCircle, HiXCircle, HiHome, HiSparkles, HiTrendingUp, HiChartBar } from "react-icons/hi";
 import { Toast } from "./components/Toast";
-import { useSummary } from "./SummaryContext";
+import API_URL from "./config/api";
 
 export default function Settings() {
-  const navigate = useNavigate();
-  const { refreshSummary } = useSummary();
   const [preferences, setPreferences] = useState({
     expenses_percent: 50,
     entertainment_percent: 30,
     investment_percent: 20,
   });
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
-  const [loading, setLoading] = useState(true);
+
+  const firstName = localStorage.getItem("firstName") || "Usuário";
+  const lastName = localStorage.getItem("lastName") || "";
+  const fullName = `${firstName} ${lastName}`.trim();
 
   useEffect(() => {
     fetchPreferences();
@@ -22,256 +21,197 @@ export default function Settings() {
   async function fetchPreferences() {
     try {
       const token = localStorage.getItem("token");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
-      const res = await fetch(`${apiUrl}/preferences`, {
+      const res = await fetch(`${API_URL || "http://localhost:8080"}/preferences`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
-      setPreferences(data);
-    } catch (error) {
-      console.error("Erro:", error);
-      setToast({ show: true, message: "Erro ao carregar preferências", type: "error" });
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleSave(e) {
-    e.preventDefault();
-
-    // Validação
-    const total = preferences.expenses_percent + preferences.entertainment_percent + preferences.investment_percent;
-    if (Math.abs(total - 100) > 0.01) {
-      setToast({ show: true, message: `Total deve ser 100%, atual: ${total.toFixed(2)}%`, type: "error" });
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem("token");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
-      const res = await fetch(`${apiUrl}/preferences`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          expenses_percent: preferences.expenses_percent,
-          entertainment_percent: preferences.entertainment_percent,
-          investment_percent: preferences.investment_percent,
-        }),
-      });
-
       if (res.ok) {
-        setToast({ show: true, message: "Preferências atualizadas com sucesso!", type: "success" });
-        refreshSummary();
-        setTimeout(() => navigate("/"), 1500);
-      } else {
-        const error = await res.text();
-        setToast({ show: true, message: error || "Erro ao atualizar preferências", type: "error" });
+        const data = await res.json();
+        setPreferences(data);
       }
     } catch (error) {
-      console.error("Erro:", error);
-      setToast({ show: true, message: "Erro de conexão", type: "error" });
+      console.error("Erro ao buscar preferências:", error);
     }
   }
 
-  function handleReset() {
-    setPreferences({
-      expenses_percent: 50,
-      entertainment_percent: 30,
-      investment_percent: 20,
-    });
+  function handleLogout() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("firstName");
+    localStorage.removeItem("lastName");
+    localStorage.removeItem("needsOnboarding");
+    // Força o reload da página para o App.jsx redirecionar pro Login
+    window.location.href = "/";
   }
 
-  const total = preferences.expenses_percent + preferences.entertainment_percent + preferences.investment_percent;
-  const isValid = Math.abs(total - 100) < 0.01;
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-cyan-400">Carregando...</div>
-      </div>
-    );
+  function handleProClick() {
+    setToast({ show: true, message: "A assinatura PRO estará disponível em breve!", type: "error" });
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-3 md:p-6 lg:p-8">
-      <div className="max-w-3xl mx-auto">
-        {/* Header */}
-        <div className="mb-6 md:mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-2xl md:text-4xl font-bold text-white">Configurações</h1>
-          </div>
-          <p className="text-gray-400 text-sm md:text-base">Personalize sua distribuição financeira</p>
-        </div>
+    <div className="space-y-12 animate-fade-in relative z-10 pb-10">
+      {/* Header */}
+      <header className="flex flex-col gap-2 mb-8">
+        <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white font-headline">Configurações</h2>
+        <p className="text-secondary/60 font-medium">Gerencie seu perfil e as preferências da sua conta.</p>
+      </header>
 
-        {/* Card */}
-        <form
-          onSubmit={handleSave}
-          className="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 md:p-6 lg:p-8 backdrop-blur-sm"
-        >
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <HiChartBar className="text-2xl md:text-3xl text-cyan-400" />
-            <h2 className="text-xl md:text-2xl font-bold text-white">
-              Distribuição {preferences.expenses_percent.toFixed(0)} / {preferences.entertainment_percent.toFixed(0)} / {preferences.investment_percent.toFixed(0)}
-            </h2>
-          </div>
-          <p className="text-gray-400 mb-8 text-sm">
-            Ajuste as porcentagens para adequar ao seu planejamento financeiro. O total deve ser 100%.
-          </p>
-
-          {/* Despesas Fixas */}
-          <div className="mb-6 md:mb-8">
-            <label className="flex items-center gap-2 text-white font-semibold mb-3 text-sm md:text-base flex-wrap">
-              <HiHome className="text-xl md:text-2xl text-cyan-400 flex-shrink-0" />
-              <span>Despesas Fixas (Moradia, Alimentação, Transporte)</span>
-            </label>
-            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-4">
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                value={preferences.expenses_percent}
-                onChange={(e) =>
-                  setPreferences({
-                    ...preferences,
-                    expenses_percent: parseFloat(e.target.value) || 0,
-                  })
-                }
-                className="flex-1 bg-slate-700 border border-slate-600 text-white rounded-lg p-2 md:p-3 focus:border-cyan-400 focus:outline-none text-sm md:text-base"
-              />
-              <span className="text-cyan-400 font-bold text-lg md:text-xl md:w-16 text-right">
-                {preferences.expenses_percent.toFixed(2)}%
-              </span>
+      {/* User Profile Section */}
+      <section>
+        <h3 className="text-lg font-headline font-bold text-on-surface mb-6 ml-2">Perfil do Usuário</h3>
+        <div className="bg-surface-container-low/60 backdrop-blur-md rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border border-outline-variant/10 shadow-lg">
+          <div className="flex items-center gap-6">
+            <div className="relative">
+              <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-surface-container-highest border-2 border-primary/20 flex items-center justify-center shadow-inner">
+                <span className="material-symbols-outlined text-4xl text-primary opacity-80">person</span>
+              </div>
+              <div className="absolute -bottom-2 -right-2 bg-primary text-on-primary p-1.5 rounded-lg shadow-lg">
+                <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+              </div>
             </div>
-            <div className="mt-2 h-2 bg-slate-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-cyan-600 transition-all"
-                style={{ width: `${preferences.expenses_percent}%` }}
-              ></div>
-            </div>
-          </div>
-
-          {/* Lazer e Diversão */}
-          <div className="mb-6 md:mb-8">
-            <label className="flex items-center gap-2 text-white font-semibold mb-3 text-sm md:text-base flex-wrap">
-              <HiSparkles className="text-xl md:text-2xl text-emerald-400 flex-shrink-0" />
-              <span>Lazer & Diversão (Entretenimento, Hobbies, Viagens)</span>
-            </label>
-            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-4">
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                value={preferences.entertainment_percent}
-                onChange={(e) =>
-                  setPreferences({
-                    ...preferences,
-                    entertainment_percent: parseFloat(e.target.value) || 0,
-                  })
-                }
-                className="flex-1 bg-slate-700 border border-slate-600 text-white rounded-lg p-2 md:p-3 focus:border-cyan-400 focus:outline-none text-sm md:text-base"
-              />
-              <span className="text-emerald-400 font-bold text-lg md:text-xl md:w-16 text-right">
-                {preferences.entertainment_percent.toFixed(2)}%
-              </span>
-            </div>
-            <div className="mt-2 h-2 bg-slate-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-emerald-600 transition-all"
-                style={{ width: `${preferences.entertainment_percent}%` }}
-              ></div>
-            </div>
-          </div>
-
-          {/* Investimentos */}
-          <div className="mb-6 md:mb-8">
-            <label className="flex items-center gap-2 text-white font-semibold mb-3 text-sm md:text-base flex-wrap">
-              <HiTrendingUp className="text-xl md:text-2xl text-purple-400 flex-shrink-0" />
-              <span>Investimentos (Poupança, Aplicações, Aposentadoria)</span>
-            </label>
-            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-4">
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                value={preferences.investment_percent}
-                onChange={(e) =>
-                  setPreferences({
-                    ...preferences,
-                    investment_percent: parseFloat(e.target.value) || 0,
-                  })
-                }
-                className="flex-1 bg-slate-700 border border-slate-600 text-white rounded-lg p-2 md:p-3 focus:border-cyan-400 focus:outline-none text-sm md:text-base"
-              />
-              <span className="text-violet-400 font-bold text-lg md:text-xl md:w-16 text-right">
-                {preferences.investment_percent.toFixed(2)}%
-              </span>
-            </div>
-            <div className="mt-2 h-2 bg-slate-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-violet-600 transition-all"
-                style={{ width: `${preferences.investment_percent}%` }}
-              ></div>
-            </div>
-          </div>
-
-          {/* Total */}
-          <div className="mb-8 p-4 bg-slate-700/50 rounded-lg border border-slate-600">
-            <div className="flex items-center justify-between">
-              <span className="text-white font-semibold">Total</span>
-              <div className="flex items-center gap-2">
-                <span className={`text-2xl font-bold ${isValid ? "text-emerald-400" : "text-red-400"}`}>
-                  {total.toFixed(2)}%
-                </span>
-                {isValid ? (
-                  <HiCheckCircle className="text-2xl text-emerald-400" />
-                ) : (
-                  <HiXCircle className="text-2xl text-red-400" />
-                )}
+            <div>
+              <h4 className="text-2xl font-headline font-extrabold text-white tracking-tight">{fullName}</h4>
+              <p className="text-secondary font-body mt-1">Conta Gratuita</p>
+              <div className="flex gap-2 mt-3">
+                <span className="px-2 py-1 bg-surface-container-highest text-slate-400 text-[10px] font-bold uppercase rounded">ID: {Math.floor(Math.random() * 900000) + 100000}</span>
+                <span className="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase rounded">Ativo</span>
               </div>
             </div>
           </div>
-
-          {/* Buttons */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              type="submit"
-              disabled={!isValid}
-              className="flex-1 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2 md:py-3 rounded-lg transition duration-200 text-sm md:text-base"
-            >
-              Salvar Configurações
-            </button>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2 md:py-3 rounded-lg transition duration-200 text-sm md:text-base"
-            >
-              Padrão (50/30/20)
-            </button>
-          </div>
-        </form>
-
-        {/* Info */}
-        <div className="mt-6 md:mt-8 p-3 md:p-4 bg-blue-600/20 border border-blue-600/30 rounded-lg">
-          <p className="text-blue-300 text-xs md:text-sm">
-            💡 <strong>Dica:</strong> Você pode personalizar as porcentagens conforme sua realidade financeira.
-            Por exemplo: 60/25/15 para quem tem despesas altas, ou 40/30/30 para quem quer investir mais.
-          </p>
+          <button onClick={handleProClick} className="w-full md:w-auto px-6 py-3 bg-surface-container-high hover:bg-surface-bright text-on-surface text-sm font-semibold rounded-full border border-white/5 transition-all duration-300">
+            Editar Perfil
+          </button>
         </div>
-      </div>
+      </section>
 
-      {toast.show && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast({ show: false, message: "", type: "success" })}
-        />
-      )}
+      {/* 50/30/20 Rule Section */}
+      <section>
+        <div className="flex items-center justify-between mb-6 px-2">
+          <h3 className="text-lg font-headline font-bold text-on-surface">Regra 50/30/20</h3>
+          <span className="text-xs text-slate-500 font-medium">Orçamento Atual</span>
+        </div>
+        <div className="bg-surface-container-low/60 backdrop-blur-md rounded-3xl p-6 md:p-8 grid grid-cols-1 md:grid-cols-3 gap-8 border border-outline-variant/10 shadow-lg">
+          
+          {/* Needs */}
+          <div className="flex flex-col gap-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold font-headline text-white">Necessidades</span>
+                <span className="material-symbols-outlined text-slate-500 text-xs">lock</span>
+              </div>
+              <span className="text-primary font-bold">{preferences.expenses_percent}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-surface-container-highest rounded-lg relative">
+              <div className="absolute top-0 left-0 h-full bg-primary rounded-lg" style={{ width: `${preferences.expenses_percent}%` }}></div>
+              <div className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-primary rounded-full shadow" style={{ left: `calc(${preferences.expenses_percent}% - 8px)` }}></div>
+            </div>
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Fixos</span>
+              <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-black">PRO</span>
+            </div>
+          </div>
+
+          {/* Wants */}
+          <div className="flex flex-col gap-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold font-headline text-white">Desejos</span>
+                <span className="material-symbols-outlined text-slate-500 text-xs">lock</span>
+              </div>
+              <span className="text-primary font-bold">{preferences.entertainment_percent}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-surface-container-highest rounded-lg relative">
+              <div className="absolute top-0 left-0 h-full bg-primary/70 rounded-lg" style={{ width: `${preferences.entertainment_percent}%` }}></div>
+              <div className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-primary rounded-full shadow" style={{ left: `calc(${preferences.entertainment_percent}% - 8px)` }}></div>
+            </div>
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Variáveis</span>
+              <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-black">PRO</span>
+            </div>
+          </div>
+
+          {/* Savings */}
+          <div className="flex flex-col gap-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold font-headline text-white">Poupança</span>
+                <span className="material-symbols-outlined text-slate-500 text-xs">lock</span>
+              </div>
+              <span className="text-primary font-bold">{preferences.investment_percent}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-surface-container-highest rounded-lg relative">
+              <div className="absolute top-0 left-0 h-full bg-primary/40 rounded-lg" style={{ width: `${preferences.investment_percent}%` }}></div>
+              <div className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-primary rounded-full shadow" style={{ left: `calc(${preferences.investment_percent}% - 8px)` }}></div>
+            </div>
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Futuro</span>
+              <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-black">PRO</span>
+            </div>
+          </div>
+
+        </div>
+        <p className="text-xs text-secondary/60 mt-4 px-2 italic text-center md:text-left">
+          * A alteração das porcentagens da regra 50/30/20 é um benefício exclusivo do plano PRO.
+        </p>
+      </section>
+
+      {/* PRO Card Section */}
+      <section>
+        <div className="bg-[rgba(19,27,46,0.6)] backdrop-blur-xl rounded-[2rem] overflow-hidden relative border border-emerald-500/20 group shadow-2xl">
+          <div className="absolute -top-24 -right-24 w-64 h-64 bg-emerald-500/20 blur-[100px] rounded-full group-hover:bg-emerald-500/30 transition-all duration-700"></div>
+          <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-primary/10 blur-[80px] rounded-full"></div>
+          
+          <div className="relative p-8 md:p-12 flex flex-col md:flex-row gap-10 items-center">
+            <div className="flex-1">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary text-on-primary rounded-full mb-6 shadow-sm">
+                <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>workspace_premium</span>
+                <span className="text-[10px] font-black uppercase tracking-wider">ProsperFlow PRO</span>
+              </div>
+              <h2 className="text-3xl md:text-4xl font-headline font-extrabold text-white mb-4 leading-tight tracking-tighter">Desbloqueie o potencial máximo</h2>
+              <p className="text-secondary max-w-md mb-8 leading-relaxed">Eleve sua gestão financeira com recursos analíticos avançados e personalização sem limites.</p>
+              
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8 mb-10">
+                <li className="flex items-center gap-3 text-slate-200">
+                  <span className="material-symbols-outlined text-primary text-lg">check_circle</span>
+                  <span className="text-sm">Sliders customizáveis</span>
+                </li>
+                <li className="flex items-center gap-3 text-slate-200">
+                  <span className="material-symbols-outlined text-primary text-lg">check_circle</span>
+                  <span className="text-sm">Relatórios em PDF</span>
+                </li>
+                <li className="flex items-center gap-3 text-slate-200">
+                  <span className="material-symbols-outlined text-primary text-lg">check_circle</span>
+                  <span className="text-sm">Contas Compartilhadas</span>
+                </li>
+                <li className="flex items-center gap-3 text-slate-200">
+                  <span className="material-symbols-outlined text-primary text-lg">check_circle</span>
+                  <span className="text-sm">Suporte Prioritário</span>
+                </li>
+              </ul>
+              
+              <button onClick={handleProClick} className="w-full md:w-auto px-10 py-4 bg-primary text-on-primary font-black font-headline text-lg rounded-full hover:scale-105 active:scale-95 transition-all duration-300 shadow-[0_0_30px_rgba(90,240,179,0.3)]">
+                Assinar PRO agora
+              </button>
+            </div>
+            
+            <div className="hidden md:block w-1/3 relative">
+              <div className="aspect-square rounded-full border border-emerald-500/10 flex items-center justify-center p-8 shadow-inner">
+                <div className="aspect-square w-full rounded-full bg-emerald-500/5 backdrop-blur-3xl flex items-center justify-center border border-white/5 shadow-[0_0_50px_rgba(90,240,179,0.1)]">
+                  <span className="material-symbols-outlined text-7xl text-emerald-400 opacity-80" style={{ fontVariationSettings: "'wght' 200" }}>rocket_launch</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer Action (Logout) */}
+      <footer className="pt-4 flex justify-center md:justify-end">
+        <button onClick={handleLogout} className="flex items-center justify-center w-full md:w-auto gap-3 px-8 py-4 text-error bg-error-container/10 hover:bg-error-container/20 border border-error/20 transition-all duration-300 rounded-2xl font-bold group">
+          <span className="material-symbols-outlined group-hover:-translate-x-1 transition-transform">logout</span>
+          <span>Sair da Conta</span>
+        </button>
+      </footer>
+
+      {toast.show && <Toast message={toast.message} type={toast.type} onClose={() => setToast({ show: false, message: "", type: "success" })} />}
     </div>
   );
 }
