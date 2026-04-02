@@ -67,6 +67,8 @@ func main() {
 	db := database.Connect()
 	defer db.Close()
 
+	database.RunMigrations(db)
+
 	routes.SetupRoutes(db)
 
 	handler := corsMiddleware(http.DefaultServeMux)
