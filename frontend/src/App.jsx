@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route, NavLink, useLocation } from "react-router-dom";
 import Dashboard from "./Dashboard";
 import Expenses from "./Expenses";
@@ -30,8 +30,11 @@ export default function App() {
   const [userName, setUserName] = useState("");
   const [needsOnboarding, setNeedsOnboarding] = useState(localStorage.getItem("needsOnboarding") === "true");
   
-  // Novo Estado para controlar o Menu Dropdown do Perfil
+  // Estado para controlar o Menu Dropdown do Perfil
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  
+  // Referência para detectar cliques fora do menu
+  const menuRef = useRef(null);
 
   useEffect(() => {
     const stored = localStorage.getItem("token");
@@ -41,6 +44,22 @@ export default function App() {
       setUserName(firstName || "");
     }
   }, []);
+
+  // Efeito para fechar o menu ao clicar fora dele
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsProfileMenuOpen(false);
+      }
+    }
+    
+    // Adiciona o listener no documento
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      // Limpa o listener
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [menuRef]);
 
   function handleLogin(newToken) {
     setToken(newToken);
@@ -88,8 +107,8 @@ export default function App() {
           {/* TopAppBar Fixo */}
           <header className="fixed top-0 left-0 w-full z-50 bg-[#0b1326]/70 backdrop-blur-xl flex justify-between items-center px-6 py-4 shadow-[0_8px_32px_0_rgba(90,240,179,0.08)] border-b border-white/5">
             
-            {/* Bloco Relativo do Perfil + Menu Dropdown */}
-            <div className="relative">
+            {/* Bloco Relativo do Perfil + Menu Dropdown referenciado */}
+            <div className="relative" ref={menuRef}>
               {/* Botão de Perfil */}
               <button 
                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
@@ -111,48 +130,38 @@ export default function App() {
 
               {/* O Dropdown em si */}
               {isProfileMenuOpen && (
-                <>
-                  {/* Fundo invisível para fechar o menu ao clicar fora */}
-                  <div 
-                    className="fixed inset-0 z-40" 
-                    onClick={() => setIsProfileMenuOpen(false)}
-                  ></div>
+                <div className="absolute top-14 left-0 w-56 bg-surface-container-low/95 backdrop-blur-2xl border border-outline-variant/20 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.5)] py-2 z-50 animate-fade-in origin-top-left">
                   
-                  {/* Caixa do Menu com Glassmorphism */}
-                  <div className="absolute top-14 left-0 w-56 bg-surface-container-low/95 backdrop-blur-2xl border border-outline-variant/20 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.5)] py-2 z-50 animate-fade-in origin-top-left">
-                    
-                    <div className="px-4 py-3 border-b border-outline-variant/10 mb-1 flex justify-between items-center bg-surface-container-highest/20 mx-2 rounded-lg">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-secondary">Conta Free</p>
-                        <p className="text-[10px] text-primary mt-0.5">Faça upgrade p/ PRO</p>
-                      </div>
-                      <span className="material-symbols-outlined text-primary text-xl">workspace_premium</span>
+                  <div className="px-4 py-3 border-b border-outline-variant/10 mb-1 flex justify-between items-center bg-surface-container-highest/20 mx-2 rounded-lg">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-secondary">Conta Free</p>
+                      <p className="text-[10px] text-primary mt-0.5">Faça upgrade p/ PRO</p>
                     </div>
-                    
-                    {/* Atalho único para Configurações */}
-                    <NavLink 
-                      to="/settings" 
-                      onClick={() => setIsProfileMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-secondary hover:text-white hover:bg-surface-container-high transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-[20px]">settings</span>
-                      Configurações
-                    </NavLink>
-
-                    <div className="h-px bg-outline-variant/10 my-1 mx-4"></div>
-                    
-                    <button 
-                      onClick={() => {
-                        setIsProfileMenuOpen(false);
-                        handleLogout();
-                      }}
-                      className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-error/80 hover:text-error hover:bg-error-container/10 transition-colors w-full text-left"
-                    >
-                      <span className="material-symbols-outlined text-[20px]">logout</span>
-                      Sair da Conta
-                    </button>
+                    <span className="material-symbols-outlined text-primary text-xl">workspace_premium</span>
                   </div>
-                </>
+                  
+                  <NavLink 
+                    to="/settings" 
+                    onClick={() => setIsProfileMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-secondary hover:text-white hover:bg-surface-container-high transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">settings</span>
+                    Configurações
+                  </NavLink>
+
+                  <div className="h-px bg-outline-variant/10 my-1 mx-4"></div>
+                  
+                  <button 
+                    onClick={() => {
+                      setIsProfileMenuOpen(false);
+                      handleLogout();
+                    }}
+                    className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-error/80 hover:text-error hover:bg-error-container/10 transition-colors w-full text-left"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">logout</span>
+                    Sair da Conta
+                  </button>
+                </div>
               )}
             </div>
 
