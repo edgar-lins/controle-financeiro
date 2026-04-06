@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useSummary } from "./SummaryContext";
 import { formatCurrencyBR } from "./utils/format";
 import { CurrencyInput } from "./components/CurrencyInput";
-import { CategorySelect } from "./components/CategorySelect";
+import { CategorySelect, CATEGORIES } from "./components/CategorySelect";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { Toast } from "./components/Toast";
 import { PeriodSelector } from "./components/PeriodSelector";
@@ -228,12 +228,18 @@ export default function Expenses() {
                   dateObj.setMinutes(dateObj.getMinutes() + dateObj.getTimezoneOffset());
                   const dateStr = dateObj.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
                   
+                  const catDef = CATEGORIES.find(c => c.value === exp.category);
+                  const CatIcon = catDef?.icon;
+
                   return (
                     <tr key={exp.id} className="group hover:bg-surface-container-high/40 transition-colors">
                       <td className="px-6 md:px-8 py-5">
                         <div className="flex items-center gap-3 md:gap-4">
-                          <div className="w-10 h-10 rounded-xl bg-tertiary-container/10 flex items-center justify-center text-tertiary-container flex-shrink-0">
-                            <span className="material-symbols-outlined text-xl">shopping_bag</span>
+                          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            {CatIcon
+                              ? <CatIcon className="text-xl text-primary" />
+                              : <span className="material-symbols-outlined text-xl text-primary">shopping_bag</span>
+                            }
                           </div>
                           <div className="flex flex-col">
                             <span className="text-sm font-semibold text-white whitespace-nowrap">{exp.category || "Diversos"}</span>
