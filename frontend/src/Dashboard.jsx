@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useSummary } from "./SummaryContext";
 import { formatCurrencyBR } from "./utils/format";
+import { BudgetDonutChart } from "./components/BudgetDonutChart";
 import API_URL from "./config/api";
 
 export default function Dashboard({ userName }) {
   const [summary, setSummary] = useState(null);
   const [accounts, setAccounts] = useState([]);
+  const [expenses, setExpenses] = useState([]);
   const [recentActivities, setRecentActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -32,20 +34,23 @@ export default function Dashboard({ userName }) {
         const dataAccounts = await resAccounts.json();
         setAccounts(Array.isArray(dataAccounts) ? dataAccounts : []);
 
-        // 3. Busca Atividades Recentes (Mesclando Gastos e Rendas)
+        // 3. Busca Gastos
         const resExp = await fetch(`${apiUrl}/expenses`, { headers });
         const exps = await resExp.json();
-        const expenses = Array.isArray(exps) ? exps.map(e => ({ ...e, type: 'expense' })) : [];
+        const expensesData = Array.isArray(exps) ? exps : [];
+        setExpenses(expensesData);
 
+        // 4. Busca Rendas
         const resInc = await fetch(`${apiUrl}/incomes`, { headers });
         const incs = await resInc.json();
         const incomes = Array.isArray(incs) ? incs.map(i => ({ ...i, type: 'income' })) : [];
 
-        // Junta, ordena por data (mais recente primeiro) e pega os 5 últimos
-        const combined = [...expenses, ...incomes]
+        // Junta gastos e rendas, ordena por data (mais recente primeiro) e pega os 5 últimos
+        const expensesWithType = expensesData.map(e => ({ ...e, type: 'expense' }));
+        const combined = [...expensesWithType, ...incomes]
           .sort((a, b) => new Date(b.date) - new Date(a.date))
           .slice(0, 5);
-        
+
         setRecentActivities(combined);
 
       } catch (error) {
@@ -101,6 +106,9 @@ export default function Dashboard({ userName }) {
           </div>
         </div>
       </section>
+
+      {/* Donut Chart 50/30/20 */}
+      <BudgetDonutChart summary={summary} expenses={expenses} />
 
       {/* 50/30/20 Budget Tracking */}
       <section className="space-y-6">
