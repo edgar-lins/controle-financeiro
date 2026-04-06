@@ -42,7 +42,7 @@ export default function Onboarding({ onComplete }) {
     try {
       const token = localStorage.getItem("token");
       const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
-      
+
       const numericIncome = parseFloat(income.replace(",", ".")) || 0;
 
       if (numericIncome > 0) {
@@ -67,6 +67,18 @@ export default function Onboarding({ onComplete }) {
             }),
           });
         }
+
+        // 3. Atualiza as preferências do usuário com a renda mensal esperada
+        await fetch(`${apiUrl}/preferences`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            expenses_percent: 50,
+            entertainment_percent: 30,
+            investment_percent: 20,
+            expected_monthly_income: numericIncome,
+          }),
+        });
       }
 
       setStep(4);

@@ -5,6 +5,7 @@ import { CurrencyInput } from "./components/CurrencyInput";
 import { CategorySelect } from "./components/CategorySelect";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { Toast } from "./components/Toast";
+import { PeriodSelector } from "./components/PeriodSelector";
 import API_URL from "./config/api";
 
 const paymentOptions = [
@@ -176,26 +177,17 @@ export default function Expenses() {
         </div>
       </header>
 
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 md:items-end">
         <div>
-          <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-2 ml-1">Mês</label>
-          <div className="relative bg-surface-container-highest/40 backdrop-blur rounded-xl border border-outline-variant/10 focus-within:border-primary/50 transition-colors">
-            <select className="w-full bg-transparent border-none text-sm font-medium text-white p-4 outline-none appearance-none" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} disabled={showAll}>
-              <option className="bg-surface" value={defaultMonth}>Mês Atual</option>
-              {Array.from({ length: 12 }, (_, i) => (<option className="bg-surface" key={i+1} value={i+1}>{new Date(0, i).toLocaleString('pt-BR', { month: 'long' })}</option>))}
-            </select>
-            <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary pointer-events-none">expand_more</span>
-          </div>
-        </div>
-        <div>
-          <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-2 ml-1">Ano</label>
-          <div className="relative bg-surface-container-highest/40 backdrop-blur rounded-xl border border-outline-variant/10 focus-within:border-primary/50 transition-colors">
-            <select className="w-full bg-transparent border-none text-sm font-medium text-white p-4 outline-none appearance-none" value={filterYear} onChange={(e) => setFilterYear(e.target.value)} disabled={showAll}>
-              <option className="bg-surface" value={defaultYear}>Ano Atual</option>
-              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => <option className="bg-surface" key={y} value={y}>{y}</option>)}
-            </select>
-            <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary pointer-events-none">expand_more</span>
-          </div>
+          <PeriodSelector
+            month={filterMonth}
+            year={filterYear}
+            onChange={({ month, year }) => {
+              setFilterMonth(month);
+              setFilterYear(year);
+            }}
+            disabled={showAll}
+          />
         </div>
         <div className="flex items-end mb-1">
           <label className="flex items-center gap-3 cursor-pointer group">
