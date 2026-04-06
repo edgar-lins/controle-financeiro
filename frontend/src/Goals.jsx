@@ -252,7 +252,7 @@ export default function Goals() {
                     {/* Botões de edição flutuantes */}
                     <div className="absolute top-[68px] right-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-surface-container-low/80 pl-2 pb-2 rounded-bl-xl backdrop-blur-sm">
                        <button onClick={() => openModal(goal)} className="text-secondary hover:text-primary p-1"><span className="material-symbols-outlined text-sm">edit</span></button>
-                       <button onClick={() => setDeleteModal({ isOpen: true, id: goal.id, name: goal.name })} className="text-secondary hover:text-error p-1"><span className="material-symbols-outlined text-sm">delete</span></button>
+                       <button onClick={() => setDeleteModal({ isOpen: true, id: goal.id, name: goal.name })} className="text-secondary hover:text-red-400 p-1"><span className="material-symbols-outlined text-sm">delete</span></button>
                     </div>
 
                     <div className="space-y-4 mb-8 mt-6">
@@ -302,7 +302,7 @@ export default function Goals() {
                     <h5 className="font-bold text-on-surface text-lg truncate max-w-[150px] sm:max-w-[200px]">{goal.name}</h5>
                     <div className="flex gap-2 mt-1">
                       <button onClick={() => openModal(goal)} className="text-[10px] text-secondary hover:text-primary transition-colors flex items-center gap-1"><span className="material-symbols-outlined text-[12px]">edit</span> Editar</button>
-                      <button onClick={() => setDeleteModal({ isOpen: true, id: goal.id, name: goal.name })} className="text-[10px] text-secondary hover:text-error transition-colors flex items-center gap-1"><span className="material-symbols-outlined text-[12px]">delete</span> Excluir</button>
+                      <button onClick={() => setDeleteModal({ isOpen: true, id: goal.id, name: goal.name })} className="text-[10px] text-secondary hover:text-red-400 transition-colors flex items-center gap-1"><span className="material-symbols-outlined text-[12px]">delete</span> Excluir</button>
                     </div>
                   </div>
                 </div>

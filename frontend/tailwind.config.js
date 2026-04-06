@@ -22,6 +22,8 @@ export default {
         "tertiary": "#ffc9cc",
         "tertiary-container": "#ffa1a7",
         "outline-variant": "#3c4a42",
+        "error": "#f87171",
+        "error-container": "#7f1d1d",
       },
       fontFamily: {
         headline: ["Manrope", "sans-serif"],

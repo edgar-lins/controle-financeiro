@@ -272,9 +272,9 @@ export default function Expenses() {
                       <td className="px-6 md:px-8 py-5 text-xs text-secondary font-medium whitespace-nowrap">{dateStr}</td>
                       <td className="px-6 md:px-8 py-5 text-right font-headline font-bold text-tertiary-container whitespace-nowrap">- {formatCurrencyBR(exp.amount)}</td>
                       <td className="px-6 md:px-8 py-5 text-center">
-                        <div className="flex items-center justify-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-center gap-1">
                           <button onClick={() => openModal(exp)} className="p-2 text-secondary hover:text-primary transition-colors"><span className="material-symbols-outlined text-xl">edit</span></button>
-                          <button onClick={() => setDeleteModal({ isOpen: true, id: exp.id, desc: exp.description })} className="p-2 text-secondary hover:text-error transition-colors"><span className="material-symbols-outlined text-xl">delete</span></button>
+                          <button onClick={() => setDeleteModal({ isOpen: true, id: exp.id, desc: exp.description })} className="p-2 text-secondary hover:text-red-400 transition-colors"><span className="material-symbols-outlined text-xl">delete</span></button>
                         </div>
                       </td>
                     </tr>

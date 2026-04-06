@@ -256,9 +256,9 @@ export default function Accounts() {
                   <h4 className={`text-xl font-bold mb-4 truncate ${acc.balance < 0 ? 'text-error' : 'text-primary'}`}>
                     {formatCurrencyBR(acc.balance)}
                   </h4>
-                  <div className="flex items-center justify-between text-[10px] text-secondary/40 font-medium">
-                    <span className="flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[12px]">edit</span> Editar
+                  <div className="flex items-center justify-between text-xs text-secondary/60 font-medium">
+                    <span className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-sm">edit</span> Editar
                     </span>
                     <span className="material-symbols-outlined text-sm group-hover:translate-x-1 group-hover:text-primary transition-all">arrow_forward</span>
                   </div>
@@ -315,7 +315,7 @@ export default function Accounts() {
                           <button onClick={() => openModal(acc)} className="p-2 hover:bg-surface-bright rounded-xl text-secondary hover:text-primary transition-colors" title="Editar">
                             <span className="material-symbols-outlined text-lg">edit</span>
                           </button>
-                          <button onClick={() => setDeleteModal({ isOpen: true, id: acc.id, name: acc.name })} className="p-2 hover:bg-error-container/20 rounded-xl text-secondary hover:text-error transition-colors" title="Excluir">
+                          <button onClick={() => setDeleteModal({ isOpen: true, id: acc.id, name: acc.name })} className="p-2 hover:bg-error-container/20 rounded-xl text-secondary hover:text-red-400 transition-colors" title="Excluir">
                             <span className="material-symbols-outlined text-lg">delete</span>
                           </button>
                         </div>
