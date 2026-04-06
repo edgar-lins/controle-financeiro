@@ -13,16 +13,14 @@ input[type="number"] {
   -moz-appearance: textfield;
 }
 
-/* Melhorias em inputs de data */
-input::-webkit-calendar-picker-indicator {
+/* Calendar icon — white */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: brightness(0) invert(1);
+  opacity: 0.5;
   cursor: pointer;
-  border-radius: 4px;
-  margin-right: 2px;
-  opacity: 0.6;
-  filter: invert(1);
 }
 
-input::-webkit-calendar-picker-indicator:hover {
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
   opacity: 1;
 }
 

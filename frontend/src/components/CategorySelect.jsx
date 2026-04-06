@@ -24,88 +24,58 @@ export const CATEGORIES = [
 ];
 
 const GROUPS = [
-  { value: "essencial", label: "Essenciais", color: "text-blue-400", description: "Gastos necessários" },
-  { value: "lazer", label: "Estilo de Vida", color: "text-purple-400", description: "Desejos e lazer" },
-  { value: "investimento", label: "Investimento", color: "text-emerald-400", description: "Poupança e futuro" },
+  { value: "essencial", label: "Essenciais", description: "Gastos necessários" },
+  { value: "lazer", label: "Estilo de Vida", description: "Desejos e lazer" },
+  { value: "investimento", label: "Investimento", description: "Poupança e futuro" },
 ];
 
 export function CategorySelect({ value, group, onChange, className = "" }) {
-  const selectedCategory = CATEGORIES.find(c => c.value === value);
-  const selectedGroup = GROUPS.find(g => g.value === group);
 
   return (
-    <div className={`space-y-4 ${className}`}>
-      {/* Category Selection */}
-      <div className="rounded-xl border border-slate-700 bg-slate-800/60 p-3 shadow-inner shadow-black/20">
-        <label className="block text-sm font-semibold text-gray-200 mb-2">Categoria</label>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-[240px] overflow-y-auto p-1 custom-scrollbar">
+    <div className={`space-y-3 ${className}`}>
+      {/* Category grid */}
+      <div>
+        <label className="block text-[10px] font-bold uppercase tracking-wider text-secondary mb-2">Categoria</label>
+        <div className="grid grid-cols-3 gap-1.5 max-h-[180px] overflow-y-auto custom-scrollbar pr-0.5">
           {CATEGORIES.map((cat) => (
             <button
               key={cat.value}
               type="button"
               onClick={() => onChange({ category: cat.value, group })}
-              className={`flex flex-col items-center gap-1 p-3 rounded-lg border transition duration-200 w-full text-sm font-medium shadow-sm ${
+              className={`flex flex-col items-center gap-1 py-2 px-1 rounded-lg border transition duration-150 w-full ${
                 value === cat.value
-                  ? "border-purple-500/70 bg-gradient-to-br from-purple-600/20 to-purple-400/10 text-white shadow-[0_10px_30px_rgba(124,58,237,0.15)]"
-                  : "border-slate-700/80 bg-slate-900/40 text-gray-200 hover:border-purple-400/70 hover:bg-slate-800/70"
+                  ? "border-primary/60 bg-primary/10 text-white"
+                  : "border-white/5 bg-white/5 text-secondary hover:border-primary/30 hover:bg-primary/5 hover:text-white"
               }`}
             >
-              <cat.icon className={`text-xl ${cat.color}`} />
-              <span className="text-xs text-center leading-4">{cat.label}</span>
+              <cat.icon className="text-base text-primary" />
+              <span className="text-[10px] text-center leading-3">{cat.label}</span>
             </button>
           ))}
         </div>
       </div>
 
-      <div className="h-px bg-slate-700/70 rounded-full" />
-
-      {/* Group Selection */}
-      <div className="rounded-xl border border-slate-700 bg-slate-800/60 p-3 shadow-inner shadow-black/20">
-        <label className="block text-sm font-semibold text-gray-200 mb-2">
-          Classificação do Gasto
-        </label>
-        <div className="space-y-2">
+      {/* Group selection */}
+      <div>
+        <label className="block text-[10px] font-bold uppercase tracking-wider text-secondary mb-2">Classificação</label>
+        <div className="flex flex-col gap-1.5">
           {GROUPS.map((grp) => (
             <button
               key={grp.value}
               type="button"
               onClick={() => onChange({ category: value, group: grp.value })}
-              className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 transition duration-200 shadow-sm ${
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-sm font-semibold transition duration-150 ${
                 group === grp.value
-                  ? "border-purple-500/80 bg-gradient-to-r from-purple-600/15 via-purple-500/10 to-blue-500/10 text-white shadow-[0_10px_30px_rgba(124,58,237,0.15)]"
-                  : "border-slate-700/80 bg-slate-900/40 text-gray-200 hover:border-purple-400/70 hover:bg-slate-800/70"
+                  ? "border-primary/60 bg-primary/10 text-primary"
+                  : "border-white/5 bg-white/5 text-secondary hover:border-primary/30 hover:text-white"
               }`}
             >
-              <div className={`w-3 h-3 rounded-full ${group === grp.value ? 'bg-purple-500' : 'bg-slate-600'}`} />
-              <div className="flex-1 text-left">
-                <div className={`font-semibold ${grp.color}`}>{grp.label}</div>
-                <div className="text-xs text-gray-400">{grp.description}</div>
-              </div>
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 transition-colors ${group === grp.value ? 'bg-primary' : 'bg-white/20'}`} />
+              {grp.label}
             </button>
           ))}
         </div>
       </div>
-
-      {/* Selection Summary */}
-      {value && group && (
-        <div className="p-3 rounded-lg border border-slate-700 bg-slate-900/60 shadow-inner shadow-black/10">
-          <div className="flex items-center gap-2 text-sm">
-            {selectedCategory && (
-              <>
-                <selectedCategory.icon className={`text-lg ${selectedCategory.color}`} />
-                <span className="font-semibold text-white">{selectedCategory.label}</span>
-              </>
-            )}
-            <span className="text-gray-500">→</span>
-            {selectedGroup && (
-              <span className={`font-semibold ${selectedGroup.color}`}>{selectedGroup.label}</span>
-            )}
-          </div>
-          {selectedCategory && (
-            <div className="text-xs text-gray-400 mt-1">{selectedCategory.description}</div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useSummary } from "./SummaryContext";
 import { formatCurrencyBR } from "./utils/format";
 import { BudgetDonutChart } from "./components/BudgetDonutChart";
+import { CATEGORIES } from "./components/CategorySelect";
 import API_URL from "./config/api";
 
 export default function Dashboard({ userName }) {
+  const navigate = useNavigate();
   const [summary, setSummary] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -166,26 +169,52 @@ export default function Dashboard({ userName }) {
             {recentActivities.map((act) => {
               const isIncome = act.type === 'income';
               const dateObj = new Date(act.date);
-              // Corrige timezone se necessário
               dateObj.setMinutes(dateObj.getMinutes() + dateObj.getTimezoneOffset());
               const dateStr = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 
+              const catDef = !isIncome ? CATEGORIES.find(c => c.value === act.category) : null;
+              const CatIcon = catDef?.icon;
+
+              const handleClick = () => {
+                if (isIncome) return;
+                navigate('/expenses', {
+                  state: {
+                    highlightId: act.id,
+                    month: String(dateObj.getMonth() + 1),
+                    year: String(dateObj.getFullYear()),
+                  }
+                });
+              };
+
               return (
-                <div key={`${act.type}-${act.id}`} className="group flex items-center justify-between p-4 bg-surface-container-low/60 hover:bg-surface-container-high/80 rounded-2xl transition-all cursor-pointer border border-transparent hover:border-white/5">
+                <div
+                  key={`${act.type}-${act.id}`}
+                  onClick={handleClick}
+                  className={`group flex items-center justify-between p-4 bg-surface-container-low/60 hover:bg-surface-container-high/80 rounded-2xl transition-all border border-transparent hover:border-white/5 ${!isIncome ? 'cursor-pointer' : 'cursor-default'}`}
+                >
                   <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${isIncome ? 'bg-primary/10 text-primary' : 'bg-tertiary-container/10 text-tertiary-container'}`}>
-                      <span className="material-symbols-outlined">
-                        {isIncome ? "payments" : "shopping_cart"}
-                      </span>
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${isIncome ? 'bg-primary/10 text-primary' : 'bg-primary/10'}`}>
+                      {isIncome ? (
+                        <span className="material-symbols-outlined text-primary">payments</span>
+                      ) : CatIcon ? (
+                        <CatIcon className="text-xl text-primary" />
+                      ) : (
+                        <span className="material-symbols-outlined text-primary">shopping_bag</span>
+                      )}
                     </div>
                     <div>
                       <p className="font-bold text-white text-sm md:text-base tracking-wide">{act.description}</p>
                       <p className="text-secondary text-xs mt-0.5">{act.category || "Geral"} • {dateStr}</p>
                     </div>
                   </div>
-                  <p className={`font-headline font-bold tracking-tight ${isIncome ? 'text-primary' : 'text-tertiary-container'}`}>
-                    {isIncome ? "+" : "-"} {formatCurrencyBR(act.amount)}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className={`font-headline font-bold tracking-tight ${isIncome ? 'text-primary' : 'text-tertiary-container'}`}>
+                      {isIncome ? "+" : "-"} {formatCurrencyBR(act.amount)}
+                    </p>
+                    {!isIncome && (
+                      <span className="material-symbols-outlined text-secondary/40 text-sm group-hover:text-primary/60 transition-colors">arrow_forward_ios</span>
+                    )}
+                  </div>
                 </div>
               );
             })}

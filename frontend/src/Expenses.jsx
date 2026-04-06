@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useSummary } from "./SummaryContext";
 import { formatCurrencyBR } from "./utils/format";
 import { CurrencyInput } from "./components/CurrencyInput";
@@ -17,16 +18,20 @@ const paymentOptions = [
 ];
 
 export default function Expenses() {
+  const location = useLocation();
+  const incomingState = location.state;
+
   const now = new Date();
-  const defaultMonth = String(now.getMonth() + 1);
-  const defaultYear = String(now.getFullYear());
+  const defaultMonth = incomingState?.month || String(now.getMonth() + 1);
+  const defaultYear = incomingState?.year || String(now.getFullYear());
 
   const [expenses, setExpenses] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [filterMonth, setFilterMonth] = useState(defaultMonth);
   const [filterYear, setFilterYear] = useState(defaultYear);
   const [showAll, setShowAll] = useState(false);
-  
+  const [highlightId, setHighlightId] = useState(incomingState?.highlightId || null);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
@@ -42,6 +47,15 @@ export default function Expenses() {
     fetchExpenses();
     fetchAccounts();
   }, [filterMonth, filterYear, showAll]);
+
+  useEffect(() => {
+    if (!highlightId || expenses.length === 0) return;
+    const el = document.getElementById(`expense-row-${highlightId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const timer = setTimeout(() => setHighlightId(null), 2500);
+    return () => clearTimeout(timer);
+  }, [expenses, highlightId]);
 
   async function fetchAccounts() {
     try {
@@ -232,7 +246,11 @@ export default function Expenses() {
                   const CatIcon = catDef?.icon;
 
                   return (
-                    <tr key={exp.id} className="group hover:bg-surface-container-high/40 transition-colors">
+                    <tr
+                      key={exp.id}
+                      id={`expense-row-${exp.id}`}
+                      className={`group transition-all duration-700 ${highlightId === exp.id ? 'bg-primary/10 outline outline-1 outline-primary/40 rounded-xl' : 'hover:bg-surface-container-high/40'}`}
+                    >
                       <td className="px-6 md:px-8 py-5">
                         <div className="flex items-center gap-3 md:gap-4">
                           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -278,46 +296,61 @@ export default function Expenses() {
         <span className="material-symbols-outlined text-3xl">add</span>
       </button>
 
-      {/* Modal Glassmorphism */}
+      {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-surface/80 backdrop-blur-sm" onClick={closeModal}></div>
-          <div className="relative bg-[#131b2e] border border-outline-variant/20 shadow-2xl rounded-[2rem] w-full max-w-lg p-6 md:p-8 animate-fade-in max-h-[90vh] overflow-y-auto no-scrollbar">
-            <h3 className="font-headline text-2xl font-bold text-white mb-6">
-              {editingId ? "Editar Gasto" : "Novo Gasto"}
-            </h3>
-            
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Descrição</label>
-                <input required type="text" placeholder="Ex: Supermercado" className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-white rounded-xl p-3.5 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-              </div>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 py-6">
+          <div className="absolute inset-0 bg-surface/80 backdrop-blur-sm" onClick={closeModal} />
+          <div className="relative bg-[#131b2e] border border-outline-variant/20 shadow-2xl rounded-[2rem] w-full max-w-2xl animate-fade-in max-h-[90vh] overflow-y-auto no-scrollbar">
 
-              <div>
-                <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Valor (R$)</label>
-                <CurrencyInput className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-tertiary-container font-headline font-bold text-xl rounded-xl p-3.5 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" value={form.amount} onChange={(val) => setForm({ ...form, amount: val })} required />
-              </div>
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 md:px-8 pt-6 md:pt-8 pb-4 border-b border-white/5">
+              <h3 className="font-headline text-xl font-bold text-white">
+                {editingId ? "Editar Gasto" : "Novo Gasto"}
+              </h3>
+              <button type="button" onClick={closeModal} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-secondary hover:text-white transition-colors">
+                <span className="material-symbols-outlined text-xl">close</span>
+              </button>
+            </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Data</label>
-                  <input required type="date" className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-white rounded-xl p-3.5 focus:border-primary outline-none transition-all [color-scheme:dark]" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+            <form onSubmit={handleSubmit}>
+              {/* Corpo em duas colunas no desktop */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:divide-x md:divide-white/5">
+
+                {/* Coluna esquerda — campos básicos */}
+                <div className="px-6 md:px-8 py-6 space-y-4">
+                  <div>
+                    <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Descrição</label>
+                    <input required type="text" placeholder="Ex: Supermercado" className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-white rounded-xl p-3.5 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Valor (R$)</label>
+                    <CurrencyInput className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-tertiary-container font-headline font-bold text-xl rounded-xl p-3.5 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" value={form.amount} onChange={(val) => setForm({ ...form, amount: val })} required />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Data</label>
+                    <input required type="date" className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-white rounded-xl p-3.5 focus:border-primary outline-none transition-all [color-scheme:dark]" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Conta</label>
+                    <select required className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-white rounded-xl p-3.5 focus:border-primary outline-none transition-all appearance-none" value={form.account_id} onChange={(e) => setForm({ ...form, account_id: e.target.value })}>
+                      <option value="" className="bg-surface">Selecione...</option>
+                      {accounts.map((acc) => (<option key={acc.id} value={acc.id} className="bg-surface">{acc.name}</option>))}
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Conta (Obrigatório)</label>
-                  <select required className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-white rounded-xl p-3.5 focus:border-primary outline-none transition-all appearance-none" value={form.account_id} onChange={(e) => setForm({ ...form, account_id: e.target.value })}>
-                    <option value="" className="bg-surface">Selecione...</option>
-                    {accounts.map((acc) => (<option key={acc.id} value={acc.id} className="bg-surface">{acc.name}</option>))}
-                  </select>
+
+                {/* Coluna direita — categoria */}
+                <div className="px-6 md:px-8 py-6 border-t border-white/5 md:border-t-0">
+                  <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-3 ml-1">Categoria 50/30/20</label>
+                  <CategorySelect value={form.category} group={form.group} onChange={({ category, group }) => setForm({ ...form, category, group })} />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Categoria 50/30/20</label>
-                <CategorySelect value={form.category} group={form.group} onChange={({ category, group }) => setForm({ ...form, category, group })} />
-              </div>
-
-              <div className="pt-4 flex gap-3">
+              {/* Footer com botões */}
+              <div className="px-6 md:px-8 pb-6 md:pb-8 pt-2 border-t border-white/5 flex gap-3">
                 <button type="button" onClick={closeModal} className="flex-1 py-3.5 rounded-xl font-bold text-secondary bg-surface-container-high hover:bg-surface-container-highest transition-colors">Cancelar</button>
                 <button type="submit" className="flex-1 py-3.5 rounded-xl font-bold text-on-primary bg-primary hover:bg-primary-container shadow-[0_4px_15px_rgba(90,240,179,0.3)] transition-all active:scale-95">{editingId ? "Salvar" : "Confirmar"}</button>
               </div>
