@@ -221,14 +221,14 @@ export default function Onboarding({ onComplete }) {
               <div className="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden"><div className="h-full bg-primary w-1/2"></div></div>
             </div>
             <div className="flex flex-col space-y-2 p-4 rounded-xl bg-surface-container-lowest/40">
-              <span className="text-secondary text-2xl font-headline font-bold">30%</span>
+              <span className="text-primary text-2xl font-headline font-bold">30%</span>
               <span className="text-secondary text-sm font-label uppercase tracking-widest">Desejos</span>
-              <div className="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden"><div className="h-full bg-secondary w-[30%]"></div></div>
+              <div className="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden"><div className="h-full bg-primary w-[30%]"></div></div>
             </div>
             <div className="flex flex-col space-y-2 p-4 rounded-xl bg-surface-container-lowest/40">
-              <span className="text-tertiary text-2xl font-headline font-bold">20%</span>
+              <span className="text-primary text-2xl font-headline font-bold">20%</span>
               <span className="text-secondary text-sm font-label uppercase tracking-widest">Poupança</span>
-              <div className="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden"><div className="h-full bg-tertiary-container w-[20%]"></div></div>
+              <div className="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden"><div className="h-full bg-primary w-[20%]"></div></div>
             </div>
           </div>
           <button onClick={onComplete} className="w-full max-w-sm bg-primary hover:bg-primary-container text-on-primary font-headline font-bold text-lg py-5 px-8 rounded-full transition-all flex items-center justify-center space-x-3 shadow-[0_10px_25px_-5px_rgba(90,240,179,0.4)] hover:scale-105">
