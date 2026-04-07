@@ -167,8 +167,8 @@ export default function Accounts() {
     setEditingId(null);
   }
 
-  function openTransferModal() {
-    setTransferForm({ from_account_id: "", to_account_id: "", amount: "" });
+  function openTransferModal(toAccountId = "") {
+    setTransferForm({ from_account_id: "", to_account_id: toAccountId ? String(toAccountId) : "", amount: "" });
     setIsTransferModalOpen(true);
   }
 
@@ -241,7 +241,34 @@ export default function Accounts() {
             {accounts.map((acc) => {
               const brand = getAccountBrand(acc.name, acc.type);
               
-              return (
+              return acc.type === "cartao" ? (
+                  <div key={acc.id} className="bg-surface-container-low/60 backdrop-blur-md p-6 rounded-3xl border border-purple-500/20 hover:border-purple-400/50 transition-all duration-300 group shadow-lg hover:shadow-[0_8px_32px_rgba(168,85,247,0.15)] flex flex-col">
+                    <div className="flex justify-between items-start mb-6">
+                      <div className={`w-12 h-12 rounded-2xl ${brand.bg} flex items-center justify-center ${brand.textColor} font-bold text-lg shadow-inner ring-1 ring-white/10`}>
+                        {brand.isIcon ? <span className="material-symbols-outlined">{brand.icon}</span> : brand.icon}
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-1 rounded-full">
+                        Crédito
+                      </span>
+                    </div>
+                    <p className="text-secondary/80 text-xs font-medium mb-1 truncate">{acc.name}</p>
+                    <p className="text-secondary/50 text-[10px] mb-3">Gastos no crédito não debitam seu saldo. Pague a fatura para liquidar.</p>
+                    <div className="mt-auto flex gap-2">
+                      <button
+                        onClick={() => openTransferModal(acc.id)}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/20 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-sm">payments</span> Pagar Fatura
+                      </button>
+                      <button
+                        onClick={() => openModal(acc)}
+                        className="px-3 py-2 rounded-xl text-xs font-bold bg-surface-container-highest hover:bg-surface-container-high text-secondary hover:text-white border border-outline-variant/10 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-sm">edit</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
                 <div key={acc.id} onClick={() => openModal(acc)} className="bg-surface-container-low/60 backdrop-blur-md p-6 rounded-3xl border border-outline-variant/10 hover:border-primary/40 transition-all duration-300 group cursor-pointer shadow-lg hover:shadow-[0_8px_32px_rgba(90,240,179,0.1)]">
                   <div className="flex justify-between items-start mb-6">
                     <div className={`w-12 h-12 rounded-2xl ${brand.bg} flex items-center justify-center ${brand.textColor} font-bold text-lg shadow-inner ring-1 ring-white/10`}>

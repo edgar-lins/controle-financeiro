@@ -337,8 +337,16 @@ export default function Expenses() {
                     <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Conta</label>
                     <select required className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-white rounded-xl p-3.5 focus:border-primary outline-none transition-all appearance-none" value={form.account_id} onChange={(e) => setForm({ ...form, account_id: e.target.value })}>
                       <option value="" className="bg-surface">Selecione...</option>
-                      {accounts.map((acc) => (<option key={acc.id} value={acc.id} className="bg-surface">{acc.name}</option>))}
+                      {accounts.map((acc) => (<option key={acc.id} value={acc.id} className="bg-surface">{acc.name}{acc.type === "cartao" ? " 💳" : ""}</option>))}
                     </select>
+                    {form.account_id && accounts.find(a => String(a.id) === String(form.account_id))?.type === "cartao" && (
+                      <div className="mt-2 flex items-start gap-2 bg-purple-500/10 border border-purple-500/20 rounded-xl px-3 py-2.5">
+                        <span className="material-symbols-outlined text-purple-400 text-sm mt-0.5 flex-shrink-0">info</span>
+                        <p className="text-[11px] text-purple-300 leading-relaxed">
+                          Gasto no crédito — o valor entra no seu orçamento do mês, mas o débito real só acontece quando você pagar a fatura.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
