@@ -104,13 +104,21 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update account balance if account_id is provided
+	// Só debita se a conta NÃO for cartão de crédito
 	if expense.AccountID != nil {
-		_, err = tx.Exec(`UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND user_id = $3`, expense.Amount, expense.AccountID, userID)
+		var accountType string
+		err = tx.QueryRow(`SELECT type FROM accounts WHERE id = $1 AND user_id = $2`, expense.AccountID, userID).Scan(&accountType)
 		if err != nil {
-			http.Error(w, "Erro ao atualizar saldo da conta", http.StatusInternalServerError)
-			fmt.Println("Erro:", err)
+			http.Error(w, "Erro ao buscar tipo da conta", http.StatusInternalServerError)
 			return
+		}
+		if accountType != "cartao" {
+			_, err = tx.Exec(`UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND user_id = $3`, expense.Amount, expense.AccountID, userID)
+			if err != nil {
+				http.Error(w, "Erro ao atualizar saldo da conta", http.StatusInternalServerError)
+				fmt.Println("Erro:", err)
+				return
+			}
 		}
 	}
 
@@ -262,22 +270,36 @@ func (h *ExpenseHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Adjust account balances
-	// Restore old account balance
+	// Adjust account balances respeitando tipo da conta (cartão não afeta saldo)
 	if oldAccountID != nil {
-		_, err = tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3`, oldAmount, oldAccountID, userID)
+		var oldAccountType string
+		err = tx.QueryRow(`SELECT type FROM accounts WHERE id = $1 AND user_id = $2`, oldAccountID, userID).Scan(&oldAccountType)
 		if err != nil {
-			http.Error(w, "Erro ao atualizar saldo da conta antiga", http.StatusInternalServerError)
+			http.Error(w, "Erro ao buscar tipo da conta antiga", http.StatusInternalServerError)
 			return
+		}
+		if oldAccountType != "cartao" {
+			_, err = tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3`, oldAmount, oldAccountID, userID)
+			if err != nil {
+				http.Error(w, "Erro ao atualizar saldo da conta antiga", http.StatusInternalServerError)
+				return
+			}
 		}
 	}
 
-	// Deduct from new account balance
 	if expense.AccountID != nil {
-		_, err = tx.Exec(`UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND user_id = $3`, expense.Amount, expense.AccountID, userID)
+		var newAccountType string
+		err = tx.QueryRow(`SELECT type FROM accounts WHERE id = $1 AND user_id = $2`, expense.AccountID, userID).Scan(&newAccountType)
 		if err != nil {
-			http.Error(w, "Erro ao atualizar saldo da nova conta", http.StatusInternalServerError)
+			http.Error(w, "Erro ao buscar tipo da nova conta", http.StatusInternalServerError)
 			return
+		}
+		if newAccountType != "cartao" {
+			_, err = tx.Exec(`UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND user_id = $3`, expense.Amount, expense.AccountID, userID)
+			if err != nil {
+				http.Error(w, "Erro ao atualizar saldo da nova conta", http.StatusInternalServerError)
+				return
+			}
 		}
 	}
 
@@ -330,12 +352,20 @@ func (h *ExpenseHandler) DeleteExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Restore account balance if account_id exists
+	// Restaura saldo só se a conta não for cartão de crédito
 	if accountID != nil {
-		_, err = tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3`, amount, accountID, userID)
+		var accountType string
+		err = tx.QueryRow(`SELECT type FROM accounts WHERE id = $1 AND user_id = $2`, accountID, userID).Scan(&accountType)
 		if err != nil {
-			http.Error(w, "Erro ao atualizar saldo da conta", http.StatusInternalServerError)
+			http.Error(w, "Erro ao buscar tipo da conta", http.StatusInternalServerError)
 			return
+		}
+		if accountType != "cartao" {
+			_, err = tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3`, amount, accountID, userID)
+			if err != nil {
+				http.Error(w, "Erro ao atualizar saldo da conta", http.StatusInternalServerError)
+				return
+			}
 		}
 	}
 

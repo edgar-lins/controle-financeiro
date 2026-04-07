@@ -191,19 +191,22 @@ func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Erro ao calcular patrimônio total:", err)
 	}
 
-	// Calcular saldo restante (apenas contas corrente e cartao)
+	// Saldo disponível = apenas contas corrente (cartão é dívida, não saldo)
 	var saldoRestante float64
 	err = h.DB.QueryRow(`
 		SELECT COALESCE(SUM(balance), 0)
 		FROM accounts
-		WHERE user_id = $1 AND type IN ('corrente', 'cartao')
+		WHERE user_id = $1 AND type = 'corrente'
 	`, userID).Scan(&saldoRestante)
 	if err != nil {
 		fmt.Println("Erro ao calcular saldo restante:", err)
 	}
 
+	mesNames := [...]string{"", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"}
+	mesName := mesNames[month]
+
 	summary := Summary{
-		Mes:             now.Month().String(),
+		Mes:             mesName,
 		Ano:             year,
 		RendaTotal:      totalIncome,
 		GastoTotal:      totalExpenses,
