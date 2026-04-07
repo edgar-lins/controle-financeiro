@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Toast } from "./components/Toast";
+import API_URL from "./config/api";
 
 export default function Login({ onLogin, onSignupSuccess }) {
   const [isSignup, setIsSignup] = useState(false);
@@ -37,7 +38,7 @@ export default function Login({ onLogin, onSignupSuccess }) {
       : { email: form.email, password: form.password };
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const apiUrl = API_URL;
       const res = await fetch(`${apiUrl}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

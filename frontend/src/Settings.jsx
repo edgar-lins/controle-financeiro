@@ -21,7 +21,7 @@ export default function Settings() {
   async function fetchPreferences() {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL || "http://localhost:8080"}/preferences`, {
+      const res = await fetch(`${API_URL}/preferences`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {

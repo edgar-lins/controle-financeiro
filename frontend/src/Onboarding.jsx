@@ -1,4 +1,5 @@
 import { useState } from "react";
+import API_URL from "./config/api";
 
 export default function Onboarding({ onComplete }) {
   const [step, setStep] = useState(1);
@@ -12,7 +13,7 @@ export default function Onboarding({ onComplete }) {
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const apiUrl = API_URL;
       
       const numericBalance = parseFloat(balance.replace(",", ".")) || 0;
 
@@ -41,7 +42,7 @@ export default function Onboarding({ onComplete }) {
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const apiUrl = API_URL;
 
       const numericIncome = parseFloat(income.replace(",", ".")) || 0;
 

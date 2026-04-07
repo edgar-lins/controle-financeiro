@@ -8,14 +8,8 @@ import { ConfirmModal } from "./components/ConfirmModal";
 import { Toast } from "./components/Toast";
 import { PeriodSelector } from "./components/PeriodSelector";
 import API_URL from "./config/api";
-
-const paymentOptions = [
-  { value: "pix", label: "Pix", icon: "bolt" },
-  { value: "debito", label: "Débito", icon: "credit_card" },
-  { value: "credito", label: "Crédito", icon: "credit_card" },
-  { value: "dinheiro", label: "Dinheiro", icon: "payments" },
-  { value: "boleto", label: "Boleto", icon: "receipt" },
-];
+import { useAccounts } from "./hooks/useAccounts";
+import { PAYMENT_METHODS } from "./constants";
 
 export default function Expenses() {
   const location = useLocation();
@@ -26,7 +20,7 @@ export default function Expenses() {
   const defaultYear = incomingState?.year || String(now.getFullYear());
 
   const [expenses, setExpenses] = useState([]);
-  const [accounts, setAccounts] = useState([]);
+  const [accounts, fetchAccounts] = useAccounts();
   const [filterMonth, setFilterMonth] = useState(defaultMonth);
   const [filterYear, setFilterYear] = useState(defaultYear);
   const [showAll, setShowAll] = useState(false);
@@ -57,19 +51,6 @@ export default function Expenses() {
     return () => clearTimeout(timer);
   }, [expenses, highlightId]);
 
-  async function fetchAccounts() {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL || "http://localhost:8080"}/accounts`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      setAccounts(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Erro ao buscar contas:", error);
-    }
-  }
-
   async function fetchExpenses() {
     try {
       const token = localStorage.getItem("token");
@@ -78,13 +59,13 @@ export default function Expenses() {
         if (filterMonth) params.set("month", String(filterMonth));
         if (filterYear) params.set("year", String(filterYear));
       }
-      const res = await fetch(`${API_URL || "http://localhost:8080"}/expenses${params.toString() ? `?${params.toString()}` : ""}`, {
+      const res = await fetch(`${API_URL}/expenses${params.toString() ? `?${params.toString()}` : ""}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       setExpenses(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Erro ao buscar gastos:", error);
+    } catch {
+      setToast({ show: true, message: "Erro ao carregar gastos", type: "error" });
     }
   }
 
@@ -97,7 +78,7 @@ export default function Expenses() {
 
     try {
       const token = localStorage.getItem("token");
-      const url = editingId ? `${API_URL || "http://localhost:8080"}/expenses/update?id=${editingId}` : `${API_URL || "http://localhost:8080"}/expenses`;
+      const url = editingId ? `${API_URL}/expenses/update?id=${editingId}` : `${API_URL}/expenses`;
       const payloadDate = form.date || new Date().toISOString().split("T")[0];
       
       const res = await fetch(url, {
@@ -127,7 +108,7 @@ export default function Expenses() {
   async function deleteExpense(id) {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL || "http://localhost:8080"}/expenses/delete?id=${id}`, {
+      const res = await fetch(`${API_URL}/expenses/delete?id=${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });

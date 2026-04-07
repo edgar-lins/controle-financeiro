@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { HiDownload, HiCheckCircle, HiClock } from "react-icons/hi";
+import API_URL from "../config/api";
 
 export function ExportData() {
   const [downloading, setDownloading] = useState(false);
@@ -8,7 +9,7 @@ export function ExportData() {
     try {
       setDownloading(true);
       const token = localStorage.getItem("token");
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+      const apiUrl = API_URL;
 
       // Buscar todos os dados
       const [expensesRes, incomesRes, accountsRes, goalsRes, summaryRes] = await Promise.all([

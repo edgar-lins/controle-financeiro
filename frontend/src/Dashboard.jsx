@@ -13,6 +13,7 @@ export default function Dashboard({ userName }) {
   const [expenses, setExpenses] = useState([]);
   const [recentActivities, setRecentActivities] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   
   const { refreshKey } = useSummary();
 
@@ -24,40 +25,37 @@ export default function Dashboard({ userName }) {
       setLoading(true);
       try {
         const token = localStorage.getItem("token");
-        const apiUrl = API_URL || "http://localhost:8080";
         const headers = { Authorization: `Bearer ${token}` };
 
-        // 1. Busca Resumo 50/30/20
-        const resSummary = await fetch(`${apiUrl}/summary`, { headers });
-        const dataSummary = await resSummary.json();
-        setSummary(dataSummary);
+        const [resSummary, resAccounts, resExp, resInc] = await Promise.all([
+          fetch(`${API_URL}/summary`, { headers }),
+          fetch(`${API_URL}/accounts`, { headers }),
+          fetch(`${API_URL}/expenses`, { headers }),
+          fetch(`${API_URL}/incomes`, { headers }),
+        ]);
 
-        // 2. Busca Contas (Para o Patrimônio Total)
-        const resAccounts = await fetch(`${apiUrl}/accounts`, { headers });
-        const dataAccounts = await resAccounts.json();
+        const [dataSummary, dataAccounts, exps, incs] = await Promise.all([
+          resSummary.json(),
+          resAccounts.json(),
+          resExp.json(),
+          resInc.json(),
+        ]);
+
+        setSummary(dataSummary);
         setAccounts(Array.isArray(dataAccounts) ? dataAccounts : []);
 
-        // 3. Busca Gastos
-        const resExp = await fetch(`${apiUrl}/expenses`, { headers });
-        const exps = await resExp.json();
         const expensesData = Array.isArray(exps) ? exps : [];
         setExpenses(expensesData);
 
-        // 4. Busca Rendas
-        const resInc = await fetch(`${apiUrl}/incomes`, { headers });
-        const incs = await resInc.json();
         const incomes = Array.isArray(incs) ? incs.map(i => ({ ...i, type: 'income' })) : [];
-
-        // Junta gastos e rendas, ordena por data (mais recente primeiro) e pega os 5 últimos
-        const expensesWithType = expensesData.map(e => ({ ...e, type: 'expense' }));
-        const combined = [...expensesWithType, ...incomes]
+        const combined = [...expensesData.map(e => ({ ...e, type: 'expense' })), ...incomes]
           .sort((a, b) => new Date(b.date) - new Date(a.date))
           .slice(0, 5);
-
         setRecentActivities(combined);
 
       } catch (error) {
         console.error("Erro ao buscar dados do dashboard:", error);
+        setError(true);
       } finally {
         setLoading(false);
       }
@@ -66,10 +64,22 @@ export default function Dashboard({ userName }) {
     fetchDashboardData();
   }, [refreshKey]);
 
-  if (loading || !summary) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (error || !summary) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
+        <span className="material-symbols-outlined text-5xl text-secondary/30">wifi_off</span>
+        <p className="text-secondary font-medium">Não foi possível carregar os dados.</p>
+        <button onClick={() => { setError(false); setLoading(true); }} className="text-primary text-sm font-semibold hover:underline">
+          Tentar novamente
+        </button>
       </div>
     );
   }

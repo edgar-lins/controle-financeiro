@@ -4,6 +4,7 @@ import { CurrencyInput } from "./components/CurrencyInput";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { Toast } from "./components/Toast";
 import API_URL from "./config/api";
+import { useAccounts } from "./hooks/useAccounts";
 
 // Ícones randômicos para dar um charme nas metas
 const goalIcons = ["flight_takeoff", "security", "directions_car", "home_repair_service", "school", "devices", "sports_esports"];
@@ -14,7 +15,7 @@ function getRandomIcon(id) {
 
 export default function Goals() {
   const [goals, setGoals] = useState([]);
-  const [accounts, setAccounts] = useState([]);
+  const [accounts, fetchAccounts] = useAccounts();
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -33,29 +34,16 @@ export default function Goals() {
     fetchAccounts();
   }, []);
 
-  async function fetchAccounts() {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL || "http://localhost:8080"}/accounts`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      setAccounts(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Erro ao buscar contas:", error);
-    }
-  }
-
   async function fetchGoals() {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL || "http://localhost:8080"}/goals`, {
+      const res = await fetch(`${API_URL}/goals`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       setGoals(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error("Erro:", error);
+      setToast({ show: true, message: "Erro ao carregar metas", type: "error" });
     }
   }
 
@@ -63,7 +51,7 @@ export default function Goals() {
     e.preventDefault();
     try {
       const token = localStorage.getItem("token");
-      const url = editingId ? `${API_URL || "http://localhost:8080"}/goals/update?id=${editingId}` : `${API_URL || "http://localhost:8080"}/goals`;
+      const url = editingId ? `${API_URL}/goals/update?id=${editingId}` : `${API_URL}/goals`;
       
       const payload = {
         ...form,
@@ -101,7 +89,7 @@ export default function Goals() {
       const token = localStorage.getItem("token");
       const amount = parseFloat(addMoneyForm.amount);
 
-      const res = await fetch(`${API_URL || "http://localhost:8080"}/goals/add-money?id=${addMoneyModal.id}`, {
+      const res = await fetch(`${API_URL}/goals/add-money?id=${addMoneyModal.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ amount: amount, account_id: parseInt(addMoneyForm.account_id) }),
@@ -123,7 +111,7 @@ export default function Goals() {
   async function deleteGoal(id) {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL || "http://localhost:8080"}/goals/delete?id=${id}`, {
+      const res = await fetch(`${API_URL}/goals/delete?id=${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });

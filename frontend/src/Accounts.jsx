@@ -51,7 +51,7 @@ export default function Accounts() {
   async function fetchAccounts() {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL || "http://localhost:8080"}/accounts`, {
+      const res = await fetch(`${API_URL}/accounts`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -65,7 +65,7 @@ export default function Accounts() {
     e.preventDefault();
     try {
       const token = localStorage.getItem("token");
-      const url = editingId ? `${API_URL || "http://localhost:8080"}/accounts/update?id=${editingId}` : `${API_URL || "http://localhost:8080"}/accounts`;
+      const url = editingId ? `${API_URL}/accounts/update?id=${editingId}` : `${API_URL}/accounts`;
       
       const payload = {
         name: form.name,
@@ -107,7 +107,7 @@ export default function Accounts() {
 
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL || "http://localhost:8080"}/accounts/transfer`, {
+      const res = await fetch(`${API_URL}/accounts/transfer`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -134,7 +134,7 @@ export default function Accounts() {
   async function deleteAccount(id) {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL || "http://localhost:8080"}/accounts/delete?id=${id}`, {
+      const res = await fetch(`${API_URL}/accounts/delete?id=${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });

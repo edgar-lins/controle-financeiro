@@ -6,6 +6,7 @@ import { ConfirmModal } from "./components/ConfirmModal";
 import { Toast } from "./components/Toast";
 import { PeriodSelector } from "./components/PeriodSelector";
 import API_URL from "./config/api";
+import { useAccounts } from "./hooks/useAccounts";
 
 export default function Incomes() {
   const now = new Date();
@@ -13,7 +14,7 @@ export default function Incomes() {
   const defaultYear = String(now.getFullYear());
 
   const [incomes, setIncomes] = useState([]);
-  const [accounts, setAccounts] = useState([]);
+  const [accounts, fetchAccounts] = useAccounts();
   const [filterMonth, setFilterMonth] = useState(defaultMonth);
   const [filterYear, setFilterYear] = useState(defaultYear);
   const [showAll, setShowAll] = useState(false);
@@ -34,19 +35,6 @@ export default function Incomes() {
     fetchAccounts();
   }, [filterMonth, filterYear, showAll]);
 
-  async function fetchAccounts() {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL || "http://localhost:8080"}/accounts`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      setAccounts(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Erro ao buscar contas:", error);
-    }
-  }
-
   async function fetchIncomes() {
     try {
       const token = localStorage.getItem("token");
@@ -55,13 +43,13 @@ export default function Incomes() {
         if (filterMonth) params.set("month", String(filterMonth));
         if (filterYear) params.set("year", String(filterYear));
       }
-      const res = await fetch(`${API_URL || "http://localhost:8080"}/incomes${params.toString() ? `?${params.toString()}` : ""}`, {
+      const res = await fetch(`${API_URL}/incomes${params.toString() ? `?${params.toString()}` : ""}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       setIncomes(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error("Erro ao buscar rendas:", error);
+      setToast({ show: true, message: "Erro ao carregar rendas", type: "error" });
     }
   }
 
@@ -74,7 +62,7 @@ export default function Incomes() {
 
     try {
       const token = localStorage.getItem("token");
-      const url = editingId ? `${API_URL || "http://localhost:8080"}/incomes/update?id=${editingId}` : `${API_URL || "http://localhost:8080"}/incomes`;
+      const url = editingId ? `${API_URL}/incomes/update?id=${editingId}` : `${API_URL}/incomes`;
       const payloadDate = form.date || new Date().toISOString().split("T")[0];
       
       const res = await fetch(url, {
@@ -104,7 +92,7 @@ export default function Incomes() {
   async function deleteIncome(id) {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL || "http://localhost:8080"}/incomes/delete?id=${id}`, {
+      const res = await fetch(`${API_URL}/incomes/delete?id=${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
