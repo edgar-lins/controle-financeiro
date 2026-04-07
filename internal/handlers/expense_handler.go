@@ -104,21 +104,11 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Só debita se a conta NÃO for cartão de crédito
 	if expense.AccountID != nil {
-		var accountType string
-		err = tx.QueryRow(`SELECT type FROM accounts WHERE id = $1 AND user_id = $2`, expense.AccountID, userID).Scan(&accountType)
+		_, err = tx.Exec(`UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND user_id = $3`, expense.Amount, expense.AccountID, userID)
 		if err != nil {
-			http.Error(w, "Erro ao buscar tipo da conta", http.StatusInternalServerError)
+			http.Error(w, "Erro ao atualizar saldo da conta", http.StatusInternalServerError)
 			return
-		}
-		if accountType != "cartao" {
-			_, err = tx.Exec(`UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND user_id = $3`, expense.Amount, expense.AccountID, userID)
-			if err != nil {
-				http.Error(w, "Erro ao atualizar saldo da conta", http.StatusInternalServerError)
-				fmt.Println("Erro:", err)
-				return
-			}
 		}
 	}
 
@@ -270,36 +260,20 @@ func (h *ExpenseHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Adjust account balances respeitando tipo da conta (cartão não afeta saldo)
+	// Reverte o valor na conta antiga e aplica na nova
 	if oldAccountID != nil {
-		var oldAccountType string
-		err = tx.QueryRow(`SELECT type FROM accounts WHERE id = $1 AND user_id = $2`, oldAccountID, userID).Scan(&oldAccountType)
+		_, err = tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3`, oldAmount, oldAccountID, userID)
 		if err != nil {
-			http.Error(w, "Erro ao buscar tipo da conta antiga", http.StatusInternalServerError)
+			http.Error(w, "Erro ao reverter saldo da conta antiga", http.StatusInternalServerError)
 			return
-		}
-		if oldAccountType != "cartao" {
-			_, err = tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3`, oldAmount, oldAccountID, userID)
-			if err != nil {
-				http.Error(w, "Erro ao atualizar saldo da conta antiga", http.StatusInternalServerError)
-				return
-			}
 		}
 	}
 
 	if expense.AccountID != nil {
-		var newAccountType string
-		err = tx.QueryRow(`SELECT type FROM accounts WHERE id = $1 AND user_id = $2`, expense.AccountID, userID).Scan(&newAccountType)
+		_, err = tx.Exec(`UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND user_id = $3`, expense.Amount, expense.AccountID, userID)
 		if err != nil {
-			http.Error(w, "Erro ao buscar tipo da nova conta", http.StatusInternalServerError)
+			http.Error(w, "Erro ao atualizar saldo da nova conta", http.StatusInternalServerError)
 			return
-		}
-		if newAccountType != "cartao" {
-			_, err = tx.Exec(`UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND user_id = $3`, expense.Amount, expense.AccountID, userID)
-			if err != nil {
-				http.Error(w, "Erro ao atualizar saldo da nova conta", http.StatusInternalServerError)
-				return
-			}
 		}
 	}
 
@@ -352,20 +326,11 @@ func (h *ExpenseHandler) DeleteExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Restaura saldo só se a conta não for cartão de crédito
 	if accountID != nil {
-		var accountType string
-		err = tx.QueryRow(`SELECT type FROM accounts WHERE id = $1 AND user_id = $2`, accountID, userID).Scan(&accountType)
+		_, err = tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3`, amount, accountID, userID)
 		if err != nil {
-			http.Error(w, "Erro ao buscar tipo da conta", http.StatusInternalServerError)
+			http.Error(w, "Erro ao restaurar saldo da conta", http.StatusInternalServerError)
 			return
-		}
-		if accountType != "cartao" {
-			_, err = tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3`, amount, accountID, userID)
-			if err != nil {
-				http.Error(w, "Erro ao atualizar saldo da conta", http.StatusInternalServerError)
-				return
-			}
 		}
 	}
 
