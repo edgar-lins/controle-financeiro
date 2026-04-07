@@ -135,9 +135,11 @@ func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 
 	var totalIncome float64
 	err := h.DB.QueryRow(`
-		SELECT COALESCE(SUM(amount), 0) 
+		SELECT COALESCE(SUM(amount), 0)
 		FROM incomes
-		WHERE month = $1 AND year = $2 AND user_id = $3
+		WHERE EXTRACT(MONTH FROM date) = $1
+			AND EXTRACT(YEAR FROM date) = $2
+			AND user_id = $3
 	`, month, year, userID).Scan(&totalIncome)
 	if err != nil {
 		http.Error(w, "Erro ao calcular renda", http.StatusInternalServerError)

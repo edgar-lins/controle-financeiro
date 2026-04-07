@@ -125,13 +125,13 @@ func (h *IncomeHandler) GetIncomes(w http.ResponseWriter, r *http.Request) {
 	args := []interface{}{userID}
 
 	if monthParam != "" {
-		baseQuery += " AND month = $" + strconv.Itoa(len(args)+1)
+		baseQuery += " AND EXTRACT(MONTH FROM date) = $" + strconv.Itoa(len(args)+1)
 		monthVal, _ := strconv.Atoi(monthParam)
 		args = append(args, monthVal)
 	}
 
 	if yearParam != "" {
-		baseQuery += " AND year = $" + strconv.Itoa(len(args)+1)
+		baseQuery += " AND EXTRACT(YEAR FROM date) = $" + strconv.Itoa(len(args)+1)
 		yearVal, _ := strconv.Atoi(yearParam)
 		args = append(args, yearVal)
 	}
