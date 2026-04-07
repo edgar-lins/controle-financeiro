@@ -3,13 +3,16 @@ package models
 import "time"
 
 type Account struct {
-	ID        int64     `json:"id"`
-	UserID    int       `json:"user_id"`
-	Name      string    `json:"name"`
-	Type      string    `json:"type"` // corrente, poupanca, cartao, investimento
-	Balance   float64   `json:"balance"`
-	Opening   float64   `json:"opening_balance"` // saldo inicial informado pelo usuário
-	CreatedAt time.Time `json:"created_at"`
+	ID          int64    `json:"id"`
+	UserID      int      `json:"user_id"`
+	Name        string   `json:"name"`
+	Type        string   `json:"type"` // corrente, poupanca, cartao, investimento
+	Balance     float64  `json:"balance"`
+	Opening     float64  `json:"opening_balance"`
+	CreditLimit *float64 `json:"credit_limit,omitempty"`
+	ClosingDay  *int     `json:"closing_day,omitempty"`
+	DueDay      *int     `json:"due_day,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type Goal struct {

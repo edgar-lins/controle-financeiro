@@ -24,8 +24,11 @@ func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `INSERT INTO accounts (user_id, name, type, balance) VALUES ($1, $2, $3, $4) RETURNING id, created_at`
-	err := h.DB.QueryRow(query, userID, acc.Name, acc.Type, acc.Balance).Scan(&acc.ID, &acc.CreatedAt)
+	query := `
+		INSERT INTO accounts (user_id, name, type, balance, credit_limit, closing_day, due_day)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, created_at`
+	err := h.DB.QueryRow(query, userID, acc.Name, acc.Type, acc.Balance, acc.CreditLimit, acc.ClosingDay, acc.DueDay).Scan(&acc.ID, &acc.CreatedAt)
 	if err != nil {
 		http.Error(w, "Erro ao criar conta", http.StatusInternalServerError)
 		return
@@ -40,7 +43,9 @@ func (h *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 	userIDVal := r.Context().Value(middleware.UserIDKey)
 	userID, _ := userIDVal.(int)
 
-	rows, err := h.DB.Query(`SELECT id, name, type, balance, created_at FROM accounts WHERE user_id = $1 ORDER BY created_at DESC`, userID)
+	rows, err := h.DB.Query(`
+		SELECT id, name, type, balance, credit_limit, closing_day, due_day, created_at
+		FROM accounts WHERE user_id = $1 ORDER BY created_at DESC`, userID)
 	if err != nil {
 		http.Error(w, "Erro ao buscar contas", http.StatusInternalServerError)
 		return
@@ -50,7 +55,7 @@ func (h *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 	accounts := []models.Account{}
 	for rows.Next() {
 		var acc models.Account
-		if err := rows.Scan(&acc.ID, &acc.Name, &acc.Type, &acc.Balance, &acc.CreatedAt); err != nil {
+		if err := rows.Scan(&acc.ID, &acc.Name, &acc.Type, &acc.Balance, &acc.CreditLimit, &acc.ClosingDay, &acc.DueDay, &acc.CreatedAt); err != nil {
 			http.Error(w, "Erro ao ler contas", http.StatusInternalServerError)
 			return
 		}
@@ -78,9 +83,11 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Simply update name, type, and balance with the values the user provided
-	query := `UPDATE accounts SET name = $1, type = $2, balance = $3 WHERE id = $4 AND user_id = $5`
-	result, err := h.DB.Exec(query, acc.Name, acc.Type, acc.Balance, id, userID)
+	query := `
+		UPDATE accounts
+		SET name = $1, type = $2, balance = $3, credit_limit = $4, closing_day = $5, due_day = $6
+		WHERE id = $7 AND user_id = $8`
+	result, err := h.DB.Exec(query, acc.Name, acc.Type, acc.Balance, acc.CreditLimit, acc.ClosingDay, acc.DueDay, id, userID)
 	if err != nil {
 		// log removido para produção
 		http.Error(w, "Erro ao atualizar conta", http.StatusInternalServerError)
@@ -182,29 +189,27 @@ func (h *AccountHandler) TransferFunds(w http.ResponseWriter, r *http.Request) {
 		VALUES ($1, $2, $3, $4, $5, COALESCE(NULLIF($6,'')::date, CURRENT_DATE))
 	`, userID, req.FromAccountID, req.ToAccountID, req.Amount, req.Description, dateValue)
 	if err != nil {
-		// log removido para produção
 		http.Error(w, "Erro ao registrar transferência", http.StatusInternalServerError)
 		return
 	}
 
-	if err := tx.Commit(); err != nil {
-		// log removido para produção
-		http.Error(w, "Erro ao concluir transferência", http.StatusInternalServerError)
+	_, err = tx.Exec(`UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND user_id = $3`,
+		req.Amount, req.FromAccountID, userID)
+	if err != nil {
+		http.Error(w, "Erro ao debitar conta de origem", http.StatusInternalServerError)
 		return
 	}
 
-	// Update account balances after the transfer
-	// Subtract from origin account and add to destination account
-	_, err = h.DB.Exec(`UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND user_id = $3`,
-		req.Amount, req.FromAccountID, userID)
-	if err != nil {
-		// log removido para produção
-	}
-
-	_, err = h.DB.Exec(`UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3`,
+	_, err = tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3`,
 		req.Amount, req.ToAccountID, userID)
 	if err != nil {
-		// log removido para produção
+		http.Error(w, "Erro ao creditar conta de destino", http.StatusInternalServerError)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		http.Error(w, "Erro ao concluir transferência", http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
