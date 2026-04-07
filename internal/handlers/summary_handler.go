@@ -43,40 +43,67 @@ func (h *SummaryHandler) GetMonthlyHistory(w http.ResponseWriter, r *http.Reques
 	userIDVal := r.Context().Value(middleware.UserIDKey)
 	userID, _ := userIDVal.(int)
 
-	// Get last 12 months
-	var monthlyData []MonthlyData
 	now := time.Now()
+	cutoff := now.AddDate(0, -11, 0)
+	cutoffDate := time.Date(cutoff.Year(), cutoff.Month(), 1, 0, 0, 0, 0, time.UTC)
 
+	// Busca totais de renda dos últimos 12 meses em 1 query
+	incomeMap := make(map[[2]int]float64)
+	incomeRows, err := h.DB.Query(`
+		SELECT EXTRACT(YEAR FROM date)::int, EXTRACT(MONTH FROM date)::int, COALESCE(SUM(amount), 0)
+		FROM incomes
+		WHERE user_id = $1 AND date >= $2
+		GROUP BY 1, 2
+	`, userID, cutoffDate)
+	if err != nil {
+		http.Error(w, "Erro ao buscar histórico de rendas", http.StatusInternalServerError)
+		fmt.Println("Erro:", err)
+		return
+	}
+	defer incomeRows.Close()
+	for incomeRows.Next() {
+		var y, m int
+		var total float64
+		incomeRows.Scan(&y, &m, &total)
+		incomeMap[[2]int{y, m}] = total
+	}
+
+	// Busca totais de despesas dos últimos 12 meses em 1 query
+	expenseMap := make(map[[2]int]float64)
+	expenseRows, err := h.DB.Query(`
+		SELECT EXTRACT(YEAR FROM date)::int, EXTRACT(MONTH FROM date)::int, COALESCE(SUM(amount), 0)
+		FROM expenses
+		WHERE user_id = $1 AND date >= $2
+		GROUP BY 1, 2
+	`, userID, cutoffDate)
+	if err != nil {
+		http.Error(w, "Erro ao buscar histórico de despesas", http.StatusInternalServerError)
+		fmt.Println("Erro:", err)
+		return
+	}
+	defer expenseRows.Close()
+	for expenseRows.Next() {
+		var y, m int
+		var total float64
+		expenseRows.Scan(&y, &m, &total)
+		expenseMap[[2]int{y, m}] = total
+	}
+
+	// Monta os 12 meses em ordem, preenchendo zero onde não há dados
+	monthlyData := make([]MonthlyData, 0, 12)
 	for i := 11; i >= 0; i-- {
-		currentMonth := now.AddDate(0, -i, 0)
-		month := int(currentMonth.Month())
-		year := currentMonth.Year()
-
-		var income, expenses float64
-
-		h.DB.QueryRow(`
-			SELECT COALESCE(SUM(amount), 0)
-			FROM incomes
-			WHERE EXTRACT(MONTH FROM date) = $1
-			AND EXTRACT(YEAR FROM date) = $2
-			AND user_id = $3
-		`, month, year, userID).Scan(&income)
-
-		h.DB.QueryRow(`
-			SELECT COALESCE(SUM(amount), 0)
-			FROM expenses
-			WHERE EXTRACT(MONTH FROM date) = $1
-			AND EXTRACT(YEAR FROM date) = $2
-			AND user_id = $3
-		`, month, year, userID).Scan(&expenses)
-
+		t := now.AddDate(0, -i, 0)
+		y, m := t.Year(), int(t.Month())
+		key := [2]int{y, m}
+		income := incomeMap[key]
+		expenses := expenseMap[key]
 		monthlyData = append(monthlyData, MonthlyData{
-			Month:    currentMonth.Format("Jan"),
-			Year:     year,
+			Month:    t.Format("Jan"),
+			Year:     y,
 			Income:   income,
 			Expenses: expenses,
 			Balance:  income - expenses,
-			MonthNum: month,
+			MonthNum: m,
 		})
 	}
 
