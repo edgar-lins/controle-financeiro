@@ -26,9 +26,9 @@ func GetUserPreferences(db *sql.DB) http.HandlerFunc {
 
 		var prefs models.UserPreferences
 		err := db.QueryRow(
-			"SELECT id, user_id, expenses_percent, entertainment_percent, investment_percent, created_at, updated_at FROM user_preferences WHERE user_id = $1",
+			"SELECT id, user_id, expenses_percent, entertainment_percent, investment_percent, expected_monthly_income, created_at, updated_at FROM user_preferences WHERE user_id = $1",
 			userID,
-		).Scan(&prefs.ID, &prefs.UserID, &prefs.ExpensesPercent, &prefs.EntertainmentPercent, &prefs.InvestmentPercent, &prefs.CreatedAt, &prefs.UpdatedAt)
+		).Scan(&prefs.ID, &prefs.UserID, &prefs.ExpensesPercent, &prefs.EntertainmentPercent, &prefs.InvestmentPercent, &prefs.ExpectedMonthlyIncome, &prefs.CreatedAt, &prefs.UpdatedAt)
 
 		if err == sql.ErrNoRows {
 			// Se não existir, retorna os valores padrão
@@ -68,9 +68,10 @@ func UpdateUserPreferences(db *sql.DB) http.HandlerFunc {
 		}
 
 		var req struct {
-			ExpensesPercent      float64 `json:"expenses_percent"`
-			EntertainmentPercent float64 `json:"entertainment_percent"`
-			InvestmentPercent    float64 `json:"investment_percent"`
+			ExpensesPercent       float64 `json:"expenses_percent"`
+			EntertainmentPercent  float64 `json:"entertainment_percent"`
+			InvestmentPercent     float64 `json:"investment_percent"`
+			ExpectedMonthlyIncome float64 `json:"expected_monthly_income"`
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -93,10 +94,10 @@ func UpdateUserPreferences(db *sql.DB) http.HandlerFunc {
 
 		// Tenta fazer UPDATE, se não existir faz INSERT
 		result, err := db.Exec(
-			`UPDATE user_preferences 
-			 SET expenses_percent = $1, entertainment_percent = $2, investment_percent = $3, updated_at = NOW()
-			 WHERE user_id = $4`,
-			req.ExpensesPercent, req.EntertainmentPercent, req.InvestmentPercent, userID,
+			`UPDATE user_preferences
+			 SET expenses_percent = $1, entertainment_percent = $2, investment_percent = $3, expected_monthly_income = $4, updated_at = NOW()
+			 WHERE user_id = $5`,
+			req.ExpensesPercent, req.EntertainmentPercent, req.InvestmentPercent, req.ExpectedMonthlyIncome, userID,
 		)
 
 		if err != nil {
@@ -113,9 +114,9 @@ func UpdateUserPreferences(db *sql.DB) http.HandlerFunc {
 		// Se não atualizou nada, faz INSERT
 		if rowsAffected == 0 {
 			_, err := db.Exec(
-				`INSERT INTO user_preferences (user_id, expenses_percent, entertainment_percent, investment_percent)
-				 VALUES ($1, $2, $3, $4)`,
-				userID, req.ExpensesPercent, req.EntertainmentPercent, req.InvestmentPercent,
+				`INSERT INTO user_preferences (user_id, expenses_percent, entertainment_percent, investment_percent, expected_monthly_income)
+				 VALUES ($1, $2, $3, $4, $5)`,
+				userID, req.ExpensesPercent, req.EntertainmentPercent, req.InvestmentPercent, req.ExpectedMonthlyIncome,
 			)
 
 			if err != nil {
@@ -127,10 +128,11 @@ func UpdateUserPreferences(db *sql.DB) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"message":               "Preferências atualizadas com sucesso",
-			"expenses_percent":      req.ExpensesPercent,
-			"entertainment_percent": req.EntertainmentPercent,
-			"investment_percent":    req.InvestmentPercent,
+			"message":                 "Preferências atualizadas com sucesso",
+			"expenses_percent":        req.ExpensesPercent,
+			"entertainment_percent":   req.EntertainmentPercent,
+			"investment_percent":      req.InvestmentPercent,
+			"expected_monthly_income": req.ExpectedMonthlyIncome,
 		})
 	}
 }
