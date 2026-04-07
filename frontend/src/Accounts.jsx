@@ -242,54 +242,56 @@ export default function Accounts() {
               const brand = getAccountBrand(acc.name, acc.type);
               
               return acc.type === "cartao" ? (
-                  <div key={acc.id} className="bg-surface-container-low/60 backdrop-blur-md p-6 rounded-3xl border border-purple-500/20 hover:border-purple-400/50 transition-all duration-300 group shadow-lg hover:shadow-[0_8px_32px_rgba(168,85,247,0.15)] flex flex-col">
-                    <div className="flex justify-between items-start mb-6">
+                  /* Card Cartão de Crédito */
+                  <div key={acc.id} className="bg-surface-container-low/60 backdrop-blur-md p-6 rounded-3xl border border-purple-500/20 hover:border-purple-400/50 transition-all duration-300 group shadow-lg hover:shadow-[0_8px_32px_rgba(168,85,247,0.15)] flex flex-col min-h-[200px]">
+                    <div className="flex justify-between items-start mb-5">
                       <div className={`w-12 h-12 rounded-2xl ${brand.bg} flex items-center justify-center ${brand.textColor} font-bold text-lg shadow-inner ring-1 ring-white/10`}>
                         {brand.isIcon ? <span className="material-symbols-outlined">{brand.icon}</span> : brand.icon}
                       </div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-1 rounded-full">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded-full">
                         Crédito
                       </span>
                     </div>
-                    <p className="text-secondary/80 text-xs font-medium mb-1 truncate">{acc.name}</p>
-                    <p className="text-secondary/50 text-[10px] mb-3">Gastos no crédito não debitam seu saldo. Pague a fatura para liquidar.</p>
+
+                    <p className="text-white font-semibold text-sm mb-1 truncate">{acc.name}</p>
+                    <p className="text-secondary/50 text-[11px] leading-relaxed mb-4">Gastos no crédito não debitam seu saldo.</p>
+
                     <div className="mt-auto flex gap-2">
                       <button
                         onClick={() => openTransferModal(acc.id)}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/20 transition-colors"
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/20 transition-colors"
                       >
                         <span className="material-symbols-outlined text-sm">payments</span> Pagar Fatura
                       </button>
                       <button
                         onClick={() => openModal(acc)}
-                        className="px-3 py-2 rounded-xl text-xs font-bold bg-surface-container-highest hover:bg-surface-container-high text-secondary hover:text-white border border-outline-variant/10 transition-colors"
+                        className="px-3 py-2.5 rounded-xl text-xs font-bold bg-surface-container-highest hover:bg-surface-container-high text-secondary hover:text-white border border-outline-variant/10 transition-colors"
                       >
                         <span className="material-symbols-outlined text-sm">edit</span>
                       </button>
                     </div>
                   </div>
                 ) : (
-                <div key={acc.id} onClick={() => openModal(acc)} className="bg-surface-container-low/60 backdrop-blur-md p-6 rounded-3xl border border-outline-variant/10 hover:border-primary/40 transition-all duration-300 group cursor-pointer shadow-lg hover:shadow-[0_8px_32px_rgba(90,240,179,0.1)]">
-                  <div className="flex justify-between items-start mb-6">
-                    <div className={`w-12 h-12 rounded-2xl ${brand.bg} flex items-center justify-center ${brand.textColor} font-bold text-lg shadow-inner ring-1 ring-white/10`}>
-                      {brand.isIcon ? (
-                        <span className="material-symbols-outlined">{brand.icon}</span>
-                      ) : (
-                        brand.icon
-                      )}
+                  /* Card Conta Comum */
+                  <div key={acc.id} onClick={() => openModal(acc)} className="bg-surface-container-low/60 backdrop-blur-md p-6 rounded-3xl border border-outline-variant/10 hover:border-primary/40 transition-all duration-300 group cursor-pointer shadow-lg hover:shadow-[0_8px_32px_rgba(90,240,179,0.1)] flex flex-col min-h-[200px]">
+                    <div className="mb-5">
+                      <div className={`w-12 h-12 rounded-2xl ${brand.bg} flex items-center justify-center ${brand.textColor} font-bold text-lg shadow-inner ring-1 ring-white/10`}>
+                        {brand.isIcon ? <span className="material-symbols-outlined">{brand.icon}</span> : brand.icon}
+                      </div>
+                    </div>
+
+                    <p className="text-secondary/70 text-xs font-medium mb-2 truncate">{acc.name} • <span className="capitalize">{acc.type}</span></p>
+                    <h4 className={`text-2xl font-bold font-headline mb-auto truncate ${acc.balance < 0 ? 'text-red-400' : 'text-primary'}`}>
+                      {formatCurrencyBR(acc.balance)}
+                    </h4>
+
+                    <div className="flex items-center justify-between text-xs text-secondary/50 font-medium mt-4 pt-4 border-t border-white/5">
+                      <span className="flex items-center gap-1.5 group-hover:text-primary transition-colors">
+                        <span className="material-symbols-outlined text-sm">edit</span> Editar
+                      </span>
+                      <span className="material-symbols-outlined text-sm group-hover:translate-x-1 group-hover:text-primary transition-all">arrow_forward</span>
                     </div>
                   </div>
-                  <p className="text-secondary/80 text-xs font-medium mb-1 truncate">{acc.name} • <span className="capitalize">{acc.type}</span></p>
-                  <h4 className={`text-xl font-bold mb-4 truncate ${acc.balance < 0 ? 'text-error' : 'text-primary'}`}>
-                    {formatCurrencyBR(acc.balance)}
-                  </h4>
-                  <div className="flex items-center justify-between text-xs text-secondary/60 font-medium">
-                    <span className="flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-sm">edit</span> Editar
-                    </span>
-                    <span className="material-symbols-outlined text-sm group-hover:translate-x-1 group-hover:text-primary transition-all">arrow_forward</span>
-                  </div>
-                </div>
               );
             })}
           </div>
