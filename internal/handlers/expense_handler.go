@@ -87,15 +87,20 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		installmentAmount = req.Amount / float64(req.Installments)
 	}
 
-	insertQuery := `
+	insertFirstQuery := `
 		INSERT INTO expenses (description, amount, category, "group", payment_method, date, user_id, account_id, installment_number, installment_total, installment_group_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id;
 	`
 
+	insertFollowQuery := `
+		INSERT INTO expenses (description, amount, category, "group", payment_method, date, user_id, account_id, installment_number, installment_total, installment_group_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	`
+
 	// Cria a primeira parcela
 	var firstID int64
-	err = tx.QueryRow(insertQuery,
+	err = tx.QueryRow(insertFirstQuery,
 		req.Description, installmentAmount, req.Category, req.Group,
 		req.PaymentMethod, expenseDate, userID, req.AccountID,
 		1, req.Installments, nil,
@@ -115,7 +120,7 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 	// Cria as parcelas seguintes (sem debitar saldo)
 	for i := 2; i <= req.Installments; i++ {
 		installmentDate := expenseDate.AddDate(0, i-1, 0)
-		_, err = tx.Exec(insertQuery,
+		_, err = tx.Exec(insertFollowQuery,
 			req.Description, installmentAmount, req.Category, req.Group,
 			req.PaymentMethod, installmentDate, userID, req.AccountID,
 			i, req.Installments, firstID,
@@ -179,12 +184,18 @@ func (h *ExpenseHandler) GetExpenses(w http.ResponseWriter, r *http.Request) {
 		// Retorna apenas gastos parcelados, sem filtro de mês
 		baseQuery += " AND installment_total > 1"
 	} else {
-		if monthParam != "" {
+		if monthParam != "" && yearParam != "" {
+			monthVal, _ := strconv.Atoi(monthParam)
+			yearVal, _ := strconv.Atoi(yearParam)
+			// Usa range de datas explícito para evitar ambiguidade com a coluna "date"
+			baseQuery += " AND date >= MAKE_DATE($" + strconv.Itoa(len(args)+1) + ", $" + strconv.Itoa(len(args)+2) + ", 1)"
+			baseQuery += " AND date < MAKE_DATE($" + strconv.Itoa(len(args)+1) + ", $" + strconv.Itoa(len(args)+2) + ", 1) + INTERVAL '1 month'"
+			args = append(args, yearVal, monthVal)
+		} else if monthParam != "" {
 			baseQuery += " AND EXTRACT(MONTH FROM date) = $" + strconv.Itoa(len(args)+1)
 			monthVal, _ := strconv.Atoi(monthParam)
 			args = append(args, monthVal)
-		}
-		if yearParam != "" {
+		} else if yearParam != "" {
 			baseQuery += " AND EXTRACT(YEAR FROM date) = $" + strconv.Itoa(len(args)+1)
 			yearVal, _ := strconv.Atoi(yearParam)
 			args = append(args, yearVal)

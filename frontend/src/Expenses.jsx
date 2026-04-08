@@ -328,8 +328,11 @@ export default function Expenses() {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Valor (R$)</label>
+                    <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Valor total (R$)</label>
                     <CurrencyInput className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-tertiary-container font-headline font-bold text-xl rounded-xl p-3.5 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" value={form.amount} onChange={(val) => setForm({ ...form, amount: val })} required />
+                    {parseInt(form.installments) > 1 && (
+                      <p className="text-[11px] text-secondary/60 mt-1.5 ml-1">Informe o valor total — o app divide automaticamente.</p>
+                    )}
                   </div>
 
                   <div>
@@ -381,10 +384,15 @@ export default function Expenses() {
                         </select>
                         <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary pointer-events-none">expand_more</span>
                       </div>
-                      {parseInt(form.installments) > 1 && form.amount && (
-                        <p className="text-[11px] text-purple-300 mt-1.5 ml-1">
-                          {form.installments}x de {formatCurrencyBR(parseFloat(form.amount) / parseInt(form.installments))} — total {formatCurrencyBR(parseFloat(form.amount))}
-                        </p>
+                      {parseInt(form.installments) > 1 && (
+                        <div className="mt-1.5 ml-1 space-y-0.5">
+                          {form.amount && (
+                            <p className="text-[11px] text-purple-300">
+                              {form.installments}x de {formatCurrencyBR(parseFloat(form.amount) / parseInt(form.installments))} — total {formatCurrencyBR(parseFloat(form.amount))}
+                            </p>
+                          )}
+                          <p className="text-[11px] text-secondary/50">Parcelamento sem juros — apenas divide o valor.</p>
+                        </div>
                       )}
                     </div>
                   )}
