@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Toast } from "./components/Toast";
 import API_URL from "./config/api";
 
@@ -9,6 +9,13 @@ export default function Login({ onLogin, onSignupSuccess }) {
   const [forgotEmail, setForgotEmail] = useState("");
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (localStorage.getItem("session_expired") === "true") {
+      localStorage.removeItem("session_expired");
+      setToast({ show: true, message: "Sua sessão expirou. Faça login novamente.", type: "error" });
+    }
+  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
