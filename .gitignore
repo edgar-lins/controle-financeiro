@@ -1,6 +1,7 @@
-# Variáveis de ambiente
+# Variáveis de ambiente (nunca commitar)
 .env
 .env.local
+.env.development
 .env.*.local
 
 # Binários Go

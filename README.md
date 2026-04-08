@@ -1,215 +1,204 @@
-# Controle Financeiro
+# ProsperFlow
 
-Sistema de controle financeiro pessoal com regra 50/30/20, multi-usuário com autenticação JWT.
+Aplicativo pessoal de controle financeiro com regra 50/30/20, suporte a múltiplas contas, cartão de crédito e metas financeiras.
 
-## Arquitetura
-- **Backend**: Go + PostgreSQL
-- **Frontend**: React (Vite) + TailwindCSS
-- **Auth**: JWT (bcrypt password hashing)
+**Stack:** Go · PostgreSQL · React (Vite) · TailwindCSS
 
-## 📚 Documentação
-
-> 📖 **[Ver Índice Completo](INDEX.md)** - Navegação facilitada de toda documentação
-
-### 🚀 Começando
-- **[Início Rápido](QUICKSTART.md)** - Configure e rode em 5 minutos
-- **[Guia de Decisão](GUIDE.md)** - Qual comando/arquivo usar em cada situação
-
-### ⚙️ Configuração
-- **[Ambientes](ENVIRONMENTS.md)** - Guia completo dev/prod
-- **[Arquitetura](ARCHITECTURE.md)** - Diagramas e estrutura
-- **[Scripts](scripts/README.md)** - Automação de tarefas
-
-### 🚢 Deploy
-- **[Deploy](DEPLOY.md)** - Instruções de deploy
-- **[Changelog](CHANGELOG.md)** - Histórico de mudanças
-
-### 📊 Resumos
-- **[Resumo](SUMMARY.md)** - O que foi implementado
+---
 
 ## Requisitos
-- Go 1.20+
-- Node.js 18+ (recomendado 20+)
-- PostgreSQL 16
-- Docker (opcional, para rodar o banco)
 
-## Setup rápido
+- Go 1.21+
+- Node.js 18+
+- PostgreSQL 16+
 
-### 1. Banco de dados
+---
+
+## Setup local
+
+### 1. Clone e configure as variáveis de ambiente
+
 ```bash
-# Usando docker-compose (recomendado)
-docker-compose up -d
+git clone <repo>
+cd controle-financeiro
 
-# Ou instale PostgreSQL manualmente e crie o banco
+cp .env.example .env
+# Edite o .env com suas configurações locais
+```
+
+```bash
+cd frontend
+cp .env.example .env.development
+# Edite se necessário (padrão já aponta para localhost:8080)
+```
+
+### 2. Banco de dados
+
+```bash
 createdb controle_financeiro
 ```
 
-### 2. Migrations
-Aplique as migrations na ordem:
-```bash
-psql -U postgres -d controle_financeiro -f migrations/001_create_expenses_table.sql
-psql -U postgres -d controle_financeiro -f migrations/002_create_incomes_table.sql
-psql -U postgres -d controle_financeiro -f migrations/003_create_users_table.sql
-psql -U postgres -d controle_financeiro -f migrations/004_add_user_id_to_expenses.sql
-psql -U postgres -d controle_financeiro -f migrations/005_add_user_id_to_incomes.sql
-psql -U postgres -d controle_financeiro -f migrations/006_create_accounts_table.sql
-psql -U postgres -d controle_financeiro -f migrations/007_create_goals_table.sql
-psql -U postgres -d controle_financeiro -f migrations/008_add_account_id_to_transactions.sql
-psql -U postgres -d controle_financeiro -f migrations/009_add_user_name.sql
-```
-
-Ou use um script:
-```bash
-for f in migrations/*.sql; do
-  psql -U postgres -d controle_financeiro -f "$f"
-done
-```
+> As migrations rodam automaticamente na inicialização do servidor.
 
 ### 3. Backend
+
 ```bash
-# Instalar dependências
 go mod tidy
-
-# Configurar variáveis de ambiente
-cp .env.development .env
-# Edite o .env com suas configurações locais
-
-# Rodar
 go run cmd/api/main.go
+# Rodando em http://localhost:8080
 ```
 
-Backend roda em `http://localhost:8080`.
-
-**📝 Nota:** Veja [ENVIRONMENTS.md](ENVIRONMENTS.md) para detalhes sobre configuração de ambientes.
-
 ### 4. Frontend
+
 ```bash
 cd frontend
 npm install
 npm run dev
+# Rodando em http://localhost:5173
 ```
 
-Frontend roda em `http://localhost:5173`.
+---
 
-## Funcionalidades
+## Variáveis de ambiente
 
-### ✅ MVP Atual
-- **Autenticação**: signup/login com JWT, suporte a nome completo do usuário
-- **Multi-usuário**: dados isolados por user_id
-- **Dashboard**: regra 50/30/20 com gráfico de pizza interativo
-- **Gestão de Contas**: múltiplas contas bancárias (corrente, poupança, cartão, investimentos)
-- **Gastos e Rendas**: cadastro com vínculo a contas específicas, atualização automática de saldos
-- **Metas Financeiras**: criação de objetivos com acompanhamento de progresso e prazo
-- **Adicionar dinheiro a metas**: vincular contribuições a contas específicas
-- **Edição completa**: editar todas as entidades (contas, gastos, rendas, metas)
-- **Filtros**: mês/ano no dashboard
-- **Notificações**: sistema de toast com auto-dismiss e animações
-- **Exportação CSV**: exportar dados financeiros
+### Backend (`.env`)
 
-### 🔜 Roadmap
-- [ ] Autenticação social (Google, GitHub)
-- [ ] Exportação PDF de relatórios
-- [ ] Análise avançada de gastos por categoria
-- [ ] Itens recorrentes (mensalidades automáticas)
-- [ ] Contas compartilhadas
-- [ ] Notificações por email/push
-- [ ] API pública para integrações
-- [ ] App mobile (React Native)
+| Variável | Descrição | Obrigatória em prod |
+|----------|-----------|---------------------|
+| `ENVIRONMENT` | `development` ou `production` | Sim |
+| `DB_HOST` | Host do PostgreSQL | Sim (ou `DATABASE_URL`) |
+| `DB_PORT` | Porta do PostgreSQL | Sim |
+| `DB_USER` | Usuário do banco | Sim |
+| `DB_PASSWORD` | Senha do banco | Sim |
+| `DB_NAME` | Nome do banco | Sim |
+| `DATABASE_URL` | URL completa (Render/Railway) — substitui as vars acima | — |
+| `PORT` | Porta do servidor HTTP (padrão: `8080`) | Não |
+| `JWT_SECRET` | Chave para assinar tokens JWT | **Sim** |
+| `ALLOWED_ORIGINS` | Origens CORS permitidas (separadas por vírgula) | **Sim** |
+| `RESEND_API_KEY` | API key do [Resend](https://resend.com) para envio de email | Recomendada |
+| `RESEND_FROM_EMAIL` | Endereço de envio (domínio verificado no Resend) | Recomendada |
+| `APP_URL` | URL pública do frontend (usada no link de reset de senha) | Recomendada |
 
-## Endpoints
+> Sem `RESEND_API_KEY`, o link de reset de senha é apenas logado no console (útil para desenvolvimento).
 
-### Auth (público)
-- `POST /auth/signup` - criar conta
-  ```json
-  {"email": "user@example.com", "password": "senha", "first_name": "João", "last_name": "Silva"}
-  ```
-- `POST /auth/login` - login
-  ```json
-  {"email": "user@example.com", "password": "senha"}
-  ```
-  Retorna: `{"token": "jwt...", "first_name": "João", "last_name": "Silva"}`
+### Frontend (`frontend/.env.development` / `.env.production`)
 
-### Protegidos (requer `Authorization: Bearer <token>`)
+| Variável | Descrição |
+|----------|-----------|
+| `VITE_API_URL` | URL base da API Go |
 
-#### Summary
-- `GET /summary?month=11&year=2025` - resumo financeiro com regra 50/30/20
+---
 
-#### Expenses (Gastos)
-- `GET /expenses` - listar gastos
-- `POST /expenses` - criar gasto (com account_id opcional)
-- `PUT /expenses/update?id=1` - atualizar gasto
-- `DELETE /expenses/delete?id=1` - deletar gasto
+## Estrutura do projeto
 
-#### Incomes (Rendas)
-- `GET /incomes` - listar rendas
-- `POST /incomes` - criar renda (com account_id opcional)
-- `PUT /incomes/update?id=1` - atualizar renda
-- `DELETE /incomes/delete?id=1` - deletar renda
-
-#### Accounts (Contas)
-- `GET /accounts` - listar contas
-- `POST /accounts` - criar conta
-- `PUT /accounts/update?id=1` - atualizar conta
-- `DELETE /accounts/delete?id=1` - deletar conta
-
-#### Goals (Metas)
-- `GET /goals` - listar metas
-- `POST /goals` - criar meta
-- `PUT /goals/update?id=1` - atualizar meta
-- `PUT /goals/add-money?id=1` - adicionar dinheiro a meta (vincula a conta)
-- `DELETE /goals/delete?id=1` - deletar meta
-
-## Estrutura
 ```
 .
-├── cmd/api/main.go          # Entrypoint
+├── cmd/api/main.go              # Entrypoint do servidor
 ├── internal/
-│   ├── database/            # Conexão PostgreSQL
-│   ├── handlers/            # Handlers HTTP
-│   │   ├── auth_handler.go
+│   ├── database/                # Conexão e execução de migrations
+│   ├── handlers/                # Handlers HTTP
+│   │   ├── auth_handler.go      # Signup, login, reset de senha, exclusão de conta
 │   │   ├── expense_handler.go
 │   │   ├── income.handler.go
-│   │   ├── account_handler.go
+│   │   ├── account_handler.go   # Contas, transferências
 │   │   ├── goal_handler.go
-│   │   └── summary_handler.go
-│   ├── middleware/          # JWT auth middleware
-│   ├── models/              # Structs (User, Expense, Income, Account, Goal)
-│   └── routes/              # Rotas
-├── migrations/              # SQL migrations (001-009)
-├── frontend/                # React app
+│   │   ├── summary_handler.go
+│   │   └── preferences_handler.go
+│   ├── middleware/              # JWT auth
+│   ├── models/                  # Structs de domínio
+│   └── routes/                  # Registro de rotas
+├── migrations/                  # SQL migrations (rodam automaticamente)
+├── frontend/
 │   ├── src/
-│   │   ├── components/      # Toast, AccountTypeSelect, CurrencyInput
-│   │   ├── styles/          # DashboardCharts
-│   │   ├── utils/           # format.js (formatCurrencyBR)
+│   │   ├── components/          # Componentes reutilizáveis
+│   │   ├── hooks/               # useAccounts
+│   │   ├── config/              # api.js (URL base)
+│   │   ├── utils/               # format.js
+│   │   ├── constants.js         # PAYMENT_METHODS, EXPENSE_GROUPS
+│   │   ├── App.jsx
 │   │   ├── Dashboard.jsx
-│   │   ├── Accounts.jsx
 │   │   ├── Expenses.jsx
 │   │   ├── Incomes.jsx
+│   │   ├── Accounts.jsx
 │   │   ├── Goals.jsx
-│   │   └── Login.jsx
-│   └── tailwind.config.js
+│   │   ├── Settings.jsx
+│   │   ├── Login.jsx
+│   │   └── ResetPassword.jsx
+│   ├── .env.development
+│   └── .env.production
+├── .env.example                 # Template de variáveis de ambiente
 └── docker-compose.yml
 ```
 
+---
+
+## API — Endpoints
+
+### Públicos
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| `POST` | `/auth/signup` | Criar conta |
+| `POST` | `/auth/login` | Login (retorna JWT) |
+| `POST` | `/auth/forgot-password` | Solicitar reset de senha |
+| `POST` | `/auth/reset-password` | Redefinir senha com token |
+
+### Autenticados (`Authorization: Bearer <token>`)
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| `DELETE` | `/auth/delete-account` | Excluir conta e todos os dados |
+| `GET` | `/summary` | Resumo financeiro do mês |
+| `GET/POST` | `/expenses` | Listar / criar gastos |
+| `PUT` | `/expenses/update?id=` | Atualizar gasto |
+| `DELETE` | `/expenses/delete?id=` | Deletar gasto |
+| `GET/POST` | `/incomes` | Listar / criar rendas |
+| `PUT` | `/incomes/update?id=` | Atualizar renda |
+| `DELETE` | `/incomes/delete?id=` | Deletar renda |
+| `GET/POST` | `/accounts` | Listar / criar contas |
+| `PUT` | `/accounts/update?id=` | Atualizar conta |
+| `DELETE` | `/accounts/delete?id=` | Deletar conta |
+| `POST` | `/accounts/transfer` | Transferência entre contas |
+| `GET/POST` | `/goals` | Listar / criar metas |
+| `PUT` | `/goals/update?id=` | Atualizar meta |
+| `PUT` | `/goals/add-money?id=` | Adicionar valor à meta |
+| `DELETE` | `/goals/delete?id=` | Deletar meta |
+| `GET/PUT` | `/preferences` | Preferências do usuário |
+
+---
+
 ## Deploy
 
-### Opção 1: Manual
-- Deploy backend em um servidor (VPS, Fly.io, Railway)
-- Deploy frontend em Vercel/Netlify
-- PostgreSQL gerenciado (Supabase, Neon, AWS RDS)
+O projeto está configurado para **Render** (backend + banco) e **Vercel** (frontend).
 
-### Opção 2: Docker
-```bash
-# TODO: adicionar Dockerfile para backend e frontend
-docker-compose up --build
-```
+### Backend — Render
 
-## Variáveis de ambiente
-- `JWT_SECRET`: secret para assinar JWT (default: `dev-secret-change-me`)
-- `DATABASE_URL`: string de conexão PostgreSQL
+1. Crie um Web Service apontando para este repositório
+2. Build command: `go build -o api ./cmd/api`
+3. Start command: `./api`
+4. Configure todas as variáveis do `.env.example` no painel do Render
+5. Crie um PostgreSQL no Render e use a `DATABASE_URL` gerada
 
-## Contribuir
-Pull requests são bem-vindos! Para grandes mudanças, abra uma issue primeiro.
+### Frontend — Vercel
 
-## Licença
-MIT
+1. Importe o repositório e defina o **Root Directory** como `frontend`
+2. Framework: Vite
+3. Adicione a variável `VITE_API_URL` com a URL do seu backend no Render
+
+> As migrations rodam automaticamente no primeiro `go run` / startup do servidor.
+
+---
+
+## Funcionalidades
+
+- Autenticação JWT com bcrypt, rate limiting e reset de senha por email
+- Dashboard com gráfico 50/30/20 e resumo por grupo de gastos
+- Gastos e rendas com vínculo a contas, filtro por mês/ano
+- Múltiplas contas (corrente, poupança, cartão de crédito, investimentos, dinheiro)
+- Cartão de crédito: fatura, limite disponível e fluxo de pagamento
+- Transferências entre contas
+- Metas financeiras com progresso
+- Exportação de dados
+- Empty state de boas-vindas para novos usuários
+- Detecção de sessão expirada com redirect automático
+- Exclusão de conta com confirmação
