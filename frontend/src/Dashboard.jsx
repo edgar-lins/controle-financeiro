@@ -87,11 +87,8 @@ export default function Dashboard({ userName }) {
   // Cálculos
   const totalNetWorth = accounts.reduce((sum, acc) => sum + acc.balance, 0);
   
-  // Progresso 50/30/20 (limitado a 100% para a barra visual)
-  const calcPerc = (real, ideal) => ideal > 0 ? Math.min((real / ideal) * 100, 100).toFixed(1) : 0;
-  const percNeeds = calcPerc(summary.real_fixos, summary.ideal_fixos);
-  const percWants = calcPerc(summary.real_lazer, summary.ideal_lazer);
-  const percSavings = calcPerc(summary.real_invest, summary.ideal_invest);
+  const totalGastos = (summary.real_fixos || 0) + (summary.real_lazer || 0) + (summary.real_invest || 0);
+  const groupShare = (val) => totalGastos > 0 ? ((val / totalGastos) * 100).toFixed(0) : 0;
 
   return (
     <div className="space-y-8 animate-fade-in pb-10">
@@ -123,48 +120,30 @@ export default function Dashboard({ userName }) {
       {/* Donut Chart 50/30/20 */}
       <BudgetDonutChart summary={summary} expenses={expenses} />
 
-      {/* 50/30/20 Budget Tracking */}
+      {/* Gastos por Grupo */}
       <section className="space-y-6">
         <div className="flex justify-between items-end">
-          <h2 className="font-headline font-bold text-2xl text-white">Orçamento 50/30/20</h2>
+          <h2 className="font-headline font-bold text-2xl text-white">Gastos por Grupo</h2>
           <span className="text-primary text-sm font-medium">{capitalizedMonth}</span>
         </div>
-        
-        <div className="space-y-6 bg-surface-container-low/50 backdrop-blur-md rounded-3xl p-6 md:p-8 border border-white/5 shadow-xl">
-          {/* Necessidades (50%) */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-on-surface font-semibold tracking-wide">Necessidades</span>
-              <span className="text-secondary font-medium">{formatCurrencyBR(summary.real_fixos)} / <span className="text-white/40">{formatCurrencyBR(summary.ideal_fixos)}</span></span>
-            </div>
-            <div className="h-2.5 w-full bg-surface-container-highest rounded-full overflow-hidden shadow-inner">
-              <div className="h-full bg-primary rounded-full transition-all duration-1000 ease-out relative" style={{ width: `${percNeeds}%` }}>
-                <div className="absolute inset-0 bg-white/20"></div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            { label: "Essenciais", icon: "home", value: summary.real_fixos || 0, color: "text-primary", bg: "bg-primary/10", border: "border-primary/20" },
+            { label: "Estilo de Vida", icon: "local_cafe", value: summary.real_lazer || 0, color: "text-amber-400", bg: "bg-amber-400/10", border: "border-amber-400/20" },
+            { label: "Investimento", icon: "trending_up", value: summary.real_invest || 0, color: "text-sky-400", bg: "bg-sky-400/10", border: "border-sky-400/20" },
+          ].map(({ label, icon, value, color, bg, border }) => (
+            <div key={label} className={`bg-surface-container-low/50 backdrop-blur-md rounded-2xl p-5 border ${border} flex flex-col gap-3`}>
+              <div className="flex items-center justify-between">
+                <span className="text-secondary/70 text-xs font-bold uppercase tracking-wider">{label}</span>
+                <div className={`w-8 h-8 rounded-xl ${bg} flex items-center justify-center`}>
+                  <span className={`material-symbols-outlined text-sm ${color}`}>{icon}</span>
+                </div>
               </div>
+              <p className={`font-headline font-bold text-2xl ${color}`}>{formatCurrencyBR(value)}</p>
+              <p className="text-secondary/50 text-xs">{groupShare(value)}% do total gasto</p>
             </div>
-          </div>
-
-          {/* Desejos (30%) */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-on-surface font-semibold tracking-wide">Desejos</span>
-              <span className="text-secondary font-medium">{formatCurrencyBR(summary.real_lazer)} / <span className="text-white/40">{formatCurrencyBR(summary.ideal_lazer)}</span></span>
-            </div>
-            <div className="h-2.5 w-full bg-surface-container-highest rounded-full overflow-hidden shadow-inner">
-              <div className="h-full bg-primary/70 rounded-full transition-all duration-1000 ease-out" style={{ width: `${percWants}%` }}></div>
-            </div>
-          </div>
-
-          {/* Poupança (20%) */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-on-surface font-semibold tracking-wide">Investimento</span>
-              <span className="text-secondary font-medium">{formatCurrencyBR(summary.real_invest)} / <span className="text-white/40">{formatCurrencyBR(summary.ideal_invest)}</span></span>
-            </div>
-            <div className="h-2.5 w-full bg-surface-container-highest rounded-full overflow-hidden shadow-inner">
-              <div className="h-full bg-primary/40 rounded-full transition-all duration-1000 ease-out" style={{ width: `${percSavings}%` }}></div>
-            </div>
-          </div>
+          ))}
         </div>
       </section>
 
