@@ -20,6 +20,8 @@ func SetupRoutes(db *sql.DB) {
 	// Auth endpoints (public)
 	http.HandleFunc("/auth/signup", authHandler.Signup)
 	http.HandleFunc("/auth/login", authHandler.Login)
+	http.HandleFunc("/auth/forgot-password", authHandler.ForgotPassword)
+	http.HandleFunc("/auth/reset-password", authHandler.ResetPassword)
 
 	http.HandleFunc("/expenses", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {

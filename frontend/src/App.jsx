@@ -8,6 +8,7 @@ import Goals from "./Goals";
 import Settings from "./Settings";
 import Login from "./Login";
 import Onboarding from "./Onboarding";
+import ResetPassword from "./ResetPassword";
 import { SummaryProvider } from "./SummaryContext";
 
 // Componente auxiliar para os botões do menu inferior
@@ -85,6 +86,16 @@ export default function App() {
   }
 
   if (!token) {
+    // Rota pública de reset de senha — independe de autenticação
+    if (window.location.pathname === "/reset-password") {
+      return (
+        <Router>
+          <Routes>
+            <Route path="/reset-password" element={<ResetPassword />} />
+          </Routes>
+        </Router>
+      );
+    }
     return <Login onLogin={handleLogin} />;
   }
 

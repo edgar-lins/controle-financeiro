@@ -1,8 +1,12 @@
 package handlers
 
 import (
+	"bytes"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"sync"
@@ -147,4 +151,163 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		FirstName: firstName,
 		LastName:  lastName,
 	})
+}
+
+func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Email == "" {
+		// Sempre retorna 200 para não revelar se o email existe
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	var userID int
+	var firstName string
+	err := h.DB.QueryRow(`SELECT id, first_name FROM users WHERE email = $1`, req.Email).Scan(&userID, &firstName)
+	if err != nil {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Gera token seguro de 32 bytes (64 chars hex)
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	token := hex.EncodeToString(b)
+	expiresAt := time.Now().Add(1 * time.Hour)
+
+	// Remove tokens anteriores do usuário e insere o novo
+	h.DB.Exec(`DELETE FROM password_reset_tokens WHERE user_id = $1`, userID)
+	_, err = h.DB.Exec(`
+		INSERT INTO password_reset_tokens (user_id, token, expires_at)
+		VALUES ($1, $2, $3)
+	`, userID, token, expiresAt)
+	if err != nil {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	appURL := os.Getenv("APP_URL")
+	if appURL == "" {
+		appURL = "http://localhost:5173"
+	}
+	resetLink := fmt.Sprintf("%s/reset-password?token=%s", appURL, token)
+
+	sendResetEmail(req.Email, firstName, resetLink)
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Token    string `json:"token"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Dados inválidos", http.StatusBadRequest)
+		return
+	}
+	if req.Token == "" || len(req.Password) < 6 {
+		http.Error(w, "Token ou senha inválidos", http.StatusBadRequest)
+		return
+	}
+
+	var tokenID, userID int
+	var expiresAt time.Time
+	var used bool
+	err := h.DB.QueryRow(`
+		SELECT id, user_id, expires_at, used
+		FROM password_reset_tokens
+		WHERE token = $1
+	`, req.Token).Scan(&tokenID, &userID, &expiresAt, &used)
+	if err != nil || used || time.Now().After(expiresAt) {
+		http.Error(w, "Token inválido ou expirado", http.StatusBadRequest)
+		return
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, "Erro ao processar senha", http.StatusInternalServerError)
+		return
+	}
+
+	tx, err := h.DB.Begin()
+	if err != nil {
+		http.Error(w, "Erro interno", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	if _, err = tx.Exec(`UPDATE users SET password_hash = $1 WHERE id = $2`, string(hash), userID); err != nil {
+		http.Error(w, "Erro ao atualizar senha", http.StatusInternalServerError)
+		return
+	}
+	if _, err = tx.Exec(`UPDATE password_reset_tokens SET used = TRUE WHERE id = $1`, tokenID); err != nil {
+		http.Error(w, "Erro interno", http.StatusInternalServerError)
+		return
+	}
+	if err = tx.Commit(); err != nil {
+		http.Error(w, "Erro ao confirmar operação", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func sendResetEmail(to, firstName, resetLink string) {
+	apiKey := os.Getenv("RESEND_API_KEY")
+	if apiKey == "" {
+		// Modo dev: loga o link no console em vez de enviar email
+		fmt.Printf("[DEV] Reset link para %s: %s\n", to, resetLink)
+		return
+	}
+
+	fromEmail := os.Getenv("RESEND_FROM_EMAIL")
+	if fromEmail == "" {
+		fromEmail = "onboarding@resend.dev"
+	}
+
+	htmlBody := fmt.Sprintf(`
+		<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0b1326;color:#e2e8f0;border-radius:16px">
+			<h2 style="color:#5af0b3;margin-bottom:8px">ProsperFlow</h2>
+			<p style="margin-bottom:24px">Olá, %s! Recebemos um pedido para redefinir sua senha.</p>
+			<a href="%s" style="display:inline-block;background:#5af0b3;color:#0b1326;font-weight:bold;padding:14px 28px;border-radius:8px;text-decoration:none">
+				Redefinir minha senha
+			</a>
+			<p style="margin-top:24px;font-size:13px;color:#94a3b8">
+				Este link expira em 1 hora. Se você não solicitou a redefinição, ignore este email.
+			</p>
+		</div>
+	`, firstName, resetLink)
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"from":    fromEmail,
+		"to":      []string{to},
+		"subject": "Redefinir senha — ProsperFlow",
+		"html":    htmlBody,
+	})
+
+	req, err := http.NewRequest("POST", "https://api.resend.com/emails", bytes.NewBuffer(payload))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	client.Do(req)
 }

@@ -3,8 +3,10 @@ import { Toast } from "./components/Toast";
 import API_URL from "./config/api";
 
 export default function Login({ onLogin, onSignupSuccess }) {
+  const [view, setView] = useState("login"); // "login" | "signup" | "forgot" | "forgot_sent"
   const [isSignup, setIsSignup] = useState(false);
   const [form, setForm] = useState({ email: "", password: "", confirmPassword: "", fullName: "" });
+  const [forgotEmail, setForgotEmail] = useState("");
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
   const [showPassword, setShowPassword] = useState(false);
 
@@ -81,6 +83,79 @@ export default function Login({ onLogin, onSignupSuccess }) {
       console.error("Erro:", error);
       setToast({ show: true, message: "Erro de conexão", type: "error" });
     }
+  }
+
+  async function handleForgotPassword(e) {
+    e.preventDefault();
+    try {
+      await fetch(`${API_URL}/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      // Sempre mostra confirmação (não revela se email existe)
+      setView("forgot_sent");
+    } catch {
+      setToast({ show: true, message: "Erro de conexão", type: "error" });
+    }
+  }
+
+  // TELA — LINK ENVIADO
+  if (view === "forgot_sent") {
+    return (
+      <div className="font-body bg-surface min-h-screen flex items-center justify-center p-6 relative overflow-hidden" style={{ backgroundImage: "radial-gradient(at 0% 0%, rgba(90, 240, 179, 0.1) 0px, transparent 50%)" }}>
+        <main className="w-full max-w-md z-10 text-center">
+          <div className="inline-flex items-center justify-center w-20 h-20 mb-6 bg-primary/10 rounded-full">
+            <span className="material-symbols-outlined text-primary text-4xl">mark_email_read</span>
+          </div>
+          <h2 className="font-headline font-extrabold text-3xl text-white mb-3">Verifique seu email</h2>
+          <p className="text-secondary mb-2">Se o endereço <span className="text-white font-medium">{forgotEmail}</span> estiver cadastrado, você receberá um link em breve.</p>
+          <p className="text-secondary/60 text-sm mb-8">O link expira em 1 hora. Verifique também a caixa de spam.</p>
+          <button onClick={() => setView("login")} className="text-primary font-semibold hover:underline">
+            Voltar para o login
+          </button>
+        </main>
+        {toast.show && <Toast message={toast.message} type={toast.type} onClose={() => setToast({ show: false, message: "", type: "success" })} />}
+      </div>
+    );
+  }
+
+  // TELA — ESQUECI MINHA SENHA
+  if (view === "forgot") {
+    return (
+      <div className="font-body bg-surface min-h-screen flex items-center justify-center p-6 relative overflow-hidden" style={{ backgroundImage: "radial-gradient(at 0% 0%, rgba(90, 240, 179, 0.1) 0px, transparent 50%)" }}>
+        <main className="w-full max-w-md z-10">
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center justify-center w-20 h-20 mb-6 bg-surface-container-high rounded-full">
+              <span className="material-symbols-outlined text-primary text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>lock_reset</span>
+            </div>
+            <h1 className="font-headline font-extrabold text-3xl tracking-tight text-white mb-2">Esqueceu a senha?</h1>
+            <p className="text-secondary text-sm">Digite seu email e enviaremos um link para redefinir sua senha.</p>
+          </div>
+
+          <div className="bg-surface-container-highest/40 backdrop-blur-xl border border-primary/10 p-8 rounded-[2rem] shadow-2xl">
+            <form onSubmit={handleForgotPassword} className="space-y-6">
+              <div className="space-y-2">
+                <label className="block text-xs font-medium uppercase tracking-widest text-secondary opacity-70 ml-1">E-mail</label>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-secondary opacity-50 text-xl">mail</span>
+                  <input className="w-full bg-surface-container-high border-none text-on-surface rounded-xl py-4 pl-12 pr-4 focus:ring-1 focus:ring-primary/40 focus:bg-surface-bright transition-all placeholder:text-secondary/30 outline-none" placeholder="seu@email.com" type="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} required />
+                </div>
+              </div>
+              <button type="submit" className="w-full bg-primary hover:bg-primary-container text-on-primary font-headline font-bold py-4 rounded-xl shadow-[0_8px_20px_rgba(90,240,179,0.2)] active:scale-95 transition-all">
+                Enviar link
+              </button>
+            </form>
+            <div className="mt-6 text-center">
+              <button onClick={() => setView("login")} className="text-secondary text-sm hover:text-primary transition-colors">
+                ← Voltar para o login
+              </button>
+            </div>
+          </div>
+        </main>
+        {toast.show && <Toast message={toast.message} type={toast.type} onClose={() => setToast({ show: false, message: "", type: "success" })} />}
+      </div>
+    );
   }
 
   // TELA DE CADASTRO
@@ -196,6 +271,9 @@ export default function Login({ onLogin, onSignupSuccess }) {
             <div className="space-y-2">
               <div className="flex justify-between items-center ml-1">
                 <label className="block text-xs font-medium uppercase tracking-widest text-secondary opacity-70">Senha</label>
+                <button type="button" onClick={() => setView("forgot")} className="text-xs text-primary/70 hover:text-primary transition-colors">
+                  Esqueci minha senha
+                </button>
               </div>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-secondary opacity-50 text-xl">lock</span>
