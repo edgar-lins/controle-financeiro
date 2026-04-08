@@ -1,4 +1,4 @@
-# ProsperFlow
+# Conto
 
 Aplicativo pessoal de controle financeiro com regra 50/30/20, suporte a múltiplas contas, cartão de crédito e metas financeiras.
 

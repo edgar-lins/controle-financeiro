@@ -178,7 +178,7 @@ export default function App() {
 
             {/* Logo Direita */}
             <div className="flex items-center gap-4">
-              <div className="text-xl font-black text-primary tracking-tighter">ProsperFlow</div>
+              <div className="text-xl font-black text-primary tracking-tighter">Conto</div>
             </div>
           </header>
 

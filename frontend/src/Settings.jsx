@@ -184,7 +184,7 @@ export default function Settings() {
             <div className="flex-1">
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary text-on-primary rounded-full mb-6 shadow-sm">
                 <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>workspace_premium</span>
-                <span className="text-[10px] font-black uppercase tracking-wider">ProsperFlow PRO</span>
+                <span className="text-[10px] font-black uppercase tracking-wider">Conto PRO</span>
               </div>
               <h2 className="text-3xl md:text-4xl font-headline font-extrabold text-white mb-4 leading-tight tracking-tighter">Desbloqueie o potencial máximo</h2>
               <p className="text-secondary max-w-md mb-8 leading-relaxed">Eleve sua gestão financeira com recursos analíticos avançados e personalização sem limites.</p>

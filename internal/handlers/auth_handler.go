@@ -330,7 +330,7 @@ func sendResetEmail(to, firstName, resetLink string) {
 
 	htmlBody := fmt.Sprintf(`
 		<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0b1326;color:#e2e8f0;border-radius:16px">
-			<h2 style="color:#5af0b3;margin-bottom:8px">ProsperFlow</h2>
+			<h2 style="color:#5af0b3;margin-bottom:8px">Conto</h2>
 			<p style="margin-bottom:24px">Olá, %s! Recebemos um pedido para redefinir sua senha.</p>
 			<a href="%s" style="display:inline-block;background:#5af0b3;color:#0b1326;font-weight:bold;padding:14px 28px;border-radius:8px;text-decoration:none">
 				Redefinir minha senha
@@ -344,7 +344,7 @@ func sendResetEmail(to, firstName, resetLink string) {
 	payload, _ := json.Marshal(map[string]interface{}{
 		"from":    fromEmail,
 		"to":      []string{to},
-		"subject": "Redefinir senha — ProsperFlow",
+		"subject": "Redefinir senha — Conto",
 		"html":    htmlBody,
 	})
 

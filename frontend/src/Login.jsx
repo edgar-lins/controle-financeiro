@@ -176,7 +176,7 @@ export default function Login({ onLogin, onSignupSuccess }) {
           <div className="hidden lg:flex flex-col space-y-8 pr-12">
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-primary text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>account_balance_wallet</span>
-              <span className="font-headline font-extrabold text-primary text-2xl tracking-tight">ProsperFlow</span>
+              <span className="font-headline font-extrabold text-primary text-2xl tracking-tight">Conto</span>
             </div>
             <div className="space-y-4">
               <h1 className="font-headline text-5xl font-extrabold text-on-surface leading-tight tracking-tight">Crie sua conta</h1>
@@ -261,7 +261,7 @@ export default function Login({ onLogin, onSignupSuccess }) {
           <div className="inline-flex items-center justify-center w-20 h-20 mb-6 bg-surface-container-high rounded-full shadow-[0_0_40px_rgba(90,240,179,0.1)]">
             <span className="material-symbols-outlined text-primary text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>account_balance_wallet</span>
           </div>
-          <h1 className="font-headline font-extrabold text-4xl tracking-tight text-primary mb-2">ProsperFlow</h1>
+          <h1 className="font-headline font-extrabold text-4xl tracking-tight text-primary mb-2">Conto</h1>
           <p className="font-body text-secondary text-base opacity-80">A sua saúde financeira em um só lugar</p>
         </div>
 

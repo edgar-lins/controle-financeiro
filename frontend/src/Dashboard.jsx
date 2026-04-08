@@ -106,7 +106,7 @@ export default function Dashboard({ userName }) {
         <section className="relative overflow-hidden rounded-[2rem] p-8 bg-[rgba(45,52,73,0.4)] backdrop-blur-xl border border-primary/10">
           <div className="absolute -top-16 -right-16 w-48 h-48 bg-primary/10 rounded-full blur-[60px]"></div>
           <div className="relative z-10">
-            <p className="text-primary text-xs font-bold uppercase tracking-widest mb-2">Bem-vindo ao ProsperFlow</p>
+            <p className="text-primary text-xs font-bold uppercase tracking-widest mb-2">Bem-vindo ao Conto</p>
             <h2 className="font-headline font-extrabold text-2xl text-white mb-1">Por onde começar?</h2>
             <p className="text-secondary/70 text-sm mb-8">Siga os 3 passos abaixo para ter seu painel completo em minutos.</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

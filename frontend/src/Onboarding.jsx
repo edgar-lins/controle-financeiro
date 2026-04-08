@@ -101,7 +101,7 @@ export default function Onboarding({ onComplete }) {
           <div className="flex justify-center mb-16">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-primary text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>account_balance_wallet</span>
-              <span className="font-headline font-extrabold text-2xl tracking-tight text-primary">ProsperFlow</span>
+              <span className="font-headline font-extrabold text-2xl tracking-tight text-primary">Conto</span>
             </div>
           </div>
           <div className="text-center space-y-6">
