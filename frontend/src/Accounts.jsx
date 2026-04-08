@@ -38,6 +38,7 @@ export default function Accounts() {
 
   const [form, setForm] = useState({
     name: "", type: "corrente", balance: "",
+    credit_limit: "", closing_day: "", due_day: "",
   });
 
   const [transferForm, setTransferForm] = useState({
@@ -72,7 +73,15 @@ export default function Accounts() {
         type: form.type,
       };
 
-      if (editingId) {
+      if (form.type === "cartao") {
+        payload.credit_limit = parseFloat(form.credit_limit) || 0;
+        payload.closing_day = parseInt(form.closing_day) || null;
+        payload.due_day = parseInt(form.due_day) || null;
+        // cartao: fatura começa zerada, não expõe saldo manual
+        if (!editingId) {
+          payload.balance = 0;
+        }
+      } else if (editingId) {
         payload.balance = parseFloat(form.balance);
       } else {
         payload.opening_balance = parseFloat(form.balance) || 0;
@@ -154,10 +163,17 @@ export default function Accounts() {
   function openModal(account = null) {
     if (account) {
       setEditingId(account.id);
-      setForm({ name: account.name, type: account.type, balance: account.balance.toString() });
+      setForm({
+        name: account.name,
+        type: account.type,
+        balance: account.balance.toString(),
+        credit_limit: account.credit_limit != null ? account.credit_limit.toString() : "",
+        closing_day: account.closing_day != null ? account.closing_day.toString() : "",
+        due_day: account.due_day != null ? account.due_day.toString() : "",
+      });
     } else {
       setEditingId(null);
-      setForm({ name: "", type: "corrente", balance: "" });
+      setForm({ name: "", type: "corrente", balance: "", credit_limit: "", closing_day: "", due_day: "" });
     }
     setIsModalOpen(true);
   }
@@ -254,7 +270,15 @@ export default function Accounts() {
                     </div>
 
                     <p className="text-white font-semibold text-sm mb-1 truncate">{acc.name}</p>
-                    <p className="text-secondary/50 text-[11px] leading-relaxed mb-4">Gastos no crédito não debitam seu saldo.</p>
+                    <div className="mb-4 space-y-1">
+                      <p className="text-[11px] text-secondary/60">Fatura atual</p>
+                      <p className="text-xl font-bold font-headline text-purple-300">{formatCurrencyBR(Math.abs(acc.balance))}</p>
+                      {acc.credit_limit != null && (
+                        <p className="text-[11px] text-secondary/50">
+                          Disponível: <span className="text-secondary/80">{formatCurrencyBR(acc.credit_limit + acc.balance)}</span>
+                        </p>
+                      )}
+                    </div>
 
                     <div className="mt-auto flex gap-2">
                       <button
@@ -336,8 +360,12 @@ export default function Accounts() {
                           {acc.type}
                         </span>
                       </td>
-                      <td className={`px-8 py-5 text-right font-headline font-bold ${acc.balance < 0 ? 'text-error' : 'text-on-surface'}`}>
-                        {formatCurrencyBR(acc.balance)}
+                      <td className="px-8 py-5 text-right font-headline font-bold">
+                        {acc.type === "cartao" ? (
+                          <span className="text-purple-300">{formatCurrencyBR(Math.abs(acc.balance))}</span>
+                        ) : (
+                          <span className={acc.balance < 0 ? 'text-error' : 'text-on-surface'}>{formatCurrencyBR(acc.balance)}</span>
+                        )}
                       </td>
                       <td className="px-8 py-5">
                         <div className="flex justify-center gap-2">
@@ -387,15 +415,60 @@ export default function Accounts() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">
-                  {editingId ? "Ajustar Saldo Atual" : "Saldo Inicial"} (R$)
-                </label>
-                <CurrencyInput className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-primary font-headline font-bold text-xl rounded-xl p-3.5 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" value={form.balance} onChange={(val) => setForm({ ...form, balance: val })} />
-                <p className="text-[10px] text-secondary mt-1 ml-1">
-                  {editingId ? "O ajuste manual de saldo não cria uma transação no histórico." : "Este valor será o ponto de partida desta conta."}
-                </p>
-              </div>
+              {form.type !== "cartao" && (
+                <div>
+                  <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">
+                    {editingId ? "Ajustar Saldo Atual" : "Saldo Inicial"} (R$)
+                  </label>
+                  <CurrencyInput className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-primary font-headline font-bold text-xl rounded-xl p-3.5 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" value={form.balance} onChange={(val) => setForm({ ...form, balance: val })} />
+                  <p className="text-[10px] text-secondary mt-1 ml-1">
+                    {editingId ? "O ajuste manual de saldo não cria uma transação no histórico." : "Este valor será o ponto de partida desta conta."}
+                  </p>
+                </div>
+              )}
+
+              {form.type === "cartao" && (
+                <>
+                  <div>
+                    <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Limite do Cartão (R$)</label>
+                    <CurrencyInput
+                      required
+                      className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-purple-300 font-headline font-bold text-xl rounded-xl p-3.5 focus:border-purple-400 focus:ring-1 focus:ring-purple-400 outline-none transition-all"
+                      value={form.credit_limit}
+                      onChange={(val) => setForm({ ...form, credit_limit: val })}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Dia de Fechamento</label>
+                      <input
+                        required
+                        type="number"
+                        min="1"
+                        max="31"
+                        placeholder="Ex: 25"
+                        className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-white rounded-xl p-3.5 focus:border-purple-400 focus:ring-1 focus:ring-purple-400 outline-none transition-all"
+                        value={form.closing_day}
+                        onChange={(e) => setForm({ ...form, closing_day: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Dia de Vencimento</label>
+                      <input
+                        required
+                        type="number"
+                        min="1"
+                        max="31"
+                        placeholder="Ex: 5"
+                        className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-white rounded-xl p-3.5 focus:border-purple-400 focus:ring-1 focus:ring-purple-400 outline-none transition-all"
+                        value={form.due_day}
+                        onChange={(e) => setForm({ ...form, due_day: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-secondary/60 -mt-2 ml-1">A fatura começa zerada e vai crescendo conforme você registra gastos no crédito.</p>
+                </>
+              )}
 
               <div className="pt-4 flex gap-3">
                 <button type="button" onClick={closeModal} className="flex-1 py-3.5 rounded-xl font-bold text-secondary bg-surface-container-high hover:bg-surface-container-highest transition-colors">Cancelar</button>
