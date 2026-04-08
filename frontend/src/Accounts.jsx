@@ -44,6 +44,7 @@ export default function Accounts() {
   const [transferForm, setTransferForm] = useState({
     from_account_id: "", to_account_id: "", amount: "",
   });
+  const [payingCard, setPayingCard] = useState(null); // account object when paying a fatura
 
   useEffect(() => {
     fetchAccounts();
@@ -184,12 +185,21 @@ export default function Accounts() {
   }
 
   function openTransferModal(toAccountId = "") {
+    setPayingCard(null);
     setTransferForm({ from_account_id: "", to_account_id: toAccountId ? String(toAccountId) : "", amount: "" });
+    setIsTransferModalOpen(true);
+  }
+
+  function openPayFaturaModal(card) {
+    setPayingCard(card);
+    const fatura = Math.abs(card.balance);
+    setTransferForm({ from_account_id: "", to_account_id: String(card.id), amount: fatura > 0 ? fatura.toString() : "" });
     setIsTransferModalOpen(true);
   }
 
   function closeTransferModal() {
     setIsTransferModalOpen(false);
+    setPayingCard(null);
   }
 
   const totalNetWorth = accounts.reduce((sum, acc) => sum + acc.balance, 0);
@@ -282,7 +292,7 @@ export default function Accounts() {
 
                     <div className="mt-auto flex gap-2">
                       <button
-                        onClick={() => openTransferModal(acc.id)}
+                        onClick={() => openPayFaturaModal(acc)}
                         className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/20 transition-colors"
                       >
                         <span className="material-symbols-outlined text-sm">payments</span> Pagar Fatura
@@ -479,57 +489,107 @@ export default function Accounts() {
         </div>
       )}
 
-      {/* Modal Glassmorphism - Transferência */}
+      {/* Modal Glassmorphism - Transferência / Pagar Fatura */}
       {isTransferModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-surface/80 backdrop-blur-sm" onClick={closeTransferModal}></div>
           <div className="relative bg-[#131b2e] border border-outline-variant/20 shadow-2xl rounded-[2rem] w-full max-w-lg p-6 md:p-8 animate-fade-in">
-            <h3 className="font-headline text-2xl font-bold text-white mb-2 flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">sync_alt</span> Transferência
-            </h3>
-            <p className="text-sm text-secondary/80 mb-6">Mova dinheiro entre suas contas sem alterar seu patrimônio ou seus relatórios de gastos/rendas.</p>
-            
-            <form onSubmit={handleTransfer} className="space-y-5">
-              <div>
-                <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Valor da Transferência (R$)</label>
-                <CurrencyInput className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-on-surface font-headline font-bold text-xl rounded-xl p-3.5 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" value={transferForm.amount} onChange={(val) => setTransferForm({ ...transferForm, amount: val })} required />
-              </div>
 
-              <div className="bg-surface-container-highest/20 p-4 rounded-2xl border border-outline-variant/5 space-y-4">
-                <div>
-                  <label className="block text-[10px] text-error font-bold uppercase tracking-wider mb-1 ml-1">Retirar de (Origem)</label>
-                  <div className="relative">
-                    <select required className="w-full bg-surface-container-highest/60 border border-outline-variant/10 text-white rounded-xl p-3 focus:border-error outline-none transition-all appearance-none" value={transferForm.from_account_id} onChange={(e) => setTransferForm({ ...transferForm, from_account_id: e.target.value })}>
-                      <option value="" className="bg-surface">Selecione a conta...</option>
-                      {accounts.map((acc) => (<option key={acc.id} value={acc.id} className="bg-surface">{acc.name} ({formatCurrencyBR(acc.balance)})</option>))}
-                    </select>
-                    <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary pointer-events-none">expand_more</span>
+            {payingCard ? (
+              /* Modo: Pagar Fatura */
+              <>
+                <h3 className="font-headline text-2xl font-bold text-white mb-1 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-purple-400">payments</span> Pagar Fatura
+                </h3>
+                <p className="text-sm text-secondary/70 mb-6">O valor será debitado da conta escolhida e abaterá a fatura do cartão.</p>
+
+                <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl px-4 py-3 mb-5 flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] text-purple-300/70 font-bold uppercase tracking-wider">Cartão</p>
+                    <p className="text-white font-semibold text-sm">{payingCard.name}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-purple-300/70 font-bold uppercase tracking-wider">Fatura atual</p>
+                    <p className="text-purple-300 font-bold font-headline">{formatCurrencyBR(Math.abs(payingCard.balance))}</p>
                   </div>
                 </div>
 
-                <div className="flex justify-center -my-3 relative z-10">
-                  <div className="bg-surface-container-highest rounded-full p-1 border border-outline-variant/10">
-                    <span className="material-symbols-outlined text-secondary text-sm">arrow_downward</span>
+                <form onSubmit={handleTransfer} className="space-y-5">
+                  <div>
+                    <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Valor do Pagamento (R$)</label>
+                    <CurrencyInput className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-purple-300 font-headline font-bold text-xl rounded-xl p-3.5 focus:border-purple-400 focus:ring-1 focus:ring-purple-400 outline-none transition-all" value={transferForm.amount} onChange={(val) => setTransferForm({ ...transferForm, amount: val })} required />
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-[10px] text-primary font-bold uppercase tracking-wider mb-1 ml-1">Enviar para (Destino)</label>
-                  <div className="relative">
-                    <select required className="w-full bg-surface-container-highest/60 border border-outline-variant/10 text-white rounded-xl p-3 focus:border-primary outline-none transition-all appearance-none" value={transferForm.to_account_id} onChange={(e) => setTransferForm({ ...transferForm, to_account_id: e.target.value })}>
-                      <option value="" className="bg-surface">Selecione a conta...</option>
-                      {accounts.map((acc) => (<option key={acc.id} value={acc.id} className="bg-surface">{acc.name} ({formatCurrencyBR(acc.balance)})</option>))}
-                    </select>
-                    <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary pointer-events-none">expand_more</span>
+                  <div>
+                    <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Pagar com qual conta?</label>
+                    <div className="relative">
+                      <select required className="w-full bg-surface-container-highest/60 border border-outline-variant/10 text-white rounded-xl p-3.5 focus:border-purple-400 outline-none transition-all appearance-none" value={transferForm.from_account_id} onChange={(e) => setTransferForm({ ...transferForm, from_account_id: e.target.value })}>
+                        <option value="" className="bg-surface">Selecione a conta...</option>
+                        {accounts.filter(a => a.id !== payingCard.id).map((acc) => (
+                          <option key={acc.id} value={acc.id} className="bg-surface">{acc.name} ({formatCurrencyBR(acc.balance)})</option>
+                        ))}
+                      </select>
+                      <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary pointer-events-none">expand_more</span>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <div className="pt-4 flex gap-3">
-                <button type="button" onClick={closeTransferModal} className="flex-1 py-3.5 rounded-xl font-bold text-secondary bg-surface-container-high hover:bg-surface-container-highest transition-colors">Cancelar</button>
-                <button type="submit" className="flex-1 py-3.5 rounded-xl font-bold text-surface bg-on-surface hover:bg-white shadow-lg transition-all active:scale-95">Confirmar</button>
-              </div>
-            </form>
+                  <div className="pt-4 flex gap-3">
+                    <button type="button" onClick={closeTransferModal} className="flex-1 py-3.5 rounded-xl font-bold text-secondary bg-surface-container-high hover:bg-surface-container-highest transition-colors">Cancelar</button>
+                    <button type="submit" className="flex-1 py-3.5 rounded-xl font-bold text-white bg-purple-600 hover:bg-purple-500 shadow-lg transition-all active:scale-95">Confirmar Pagamento</button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              /* Modo: Transferência normal */
+              <>
+                <h3 className="font-headline text-2xl font-bold text-white mb-2 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">sync_alt</span> Transferência
+                </h3>
+                <p className="text-sm text-secondary/80 mb-6">Mova dinheiro entre suas contas sem alterar seu patrimônio ou seus relatórios de gastos/rendas.</p>
+
+                <form onSubmit={handleTransfer} className="space-y-5">
+                  <div>
+                    <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Valor da Transferência (R$)</label>
+                    <CurrencyInput className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-on-surface font-headline font-bold text-xl rounded-xl p-3.5 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" value={transferForm.amount} onChange={(val) => setTransferForm({ ...transferForm, amount: val })} required />
+                  </div>
+
+                  <div className="bg-surface-container-highest/20 p-4 rounded-2xl border border-outline-variant/5 space-y-4">
+                    <div>
+                      <label className="block text-[10px] text-error font-bold uppercase tracking-wider mb-1 ml-1">Retirar de (Origem)</label>
+                      <div className="relative">
+                        <select required className="w-full bg-surface-container-highest/60 border border-outline-variant/10 text-white rounded-xl p-3 focus:border-error outline-none transition-all appearance-none" value={transferForm.from_account_id} onChange={(e) => setTransferForm({ ...transferForm, from_account_id: e.target.value })}>
+                          <option value="" className="bg-surface">Selecione a conta...</option>
+                          {accounts.map((acc) => (<option key={acc.id} value={acc.id} className="bg-surface">{acc.name} ({formatCurrencyBR(acc.balance)})</option>))}
+                        </select>
+                        <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary pointer-events-none">expand_more</span>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-center -my-3 relative z-10">
+                      <div className="bg-surface-container-highest rounded-full p-1 border border-outline-variant/10">
+                        <span className="material-symbols-outlined text-secondary text-sm">arrow_downward</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-primary font-bold uppercase tracking-wider mb-1 ml-1">Enviar para (Destino)</label>
+                      <div className="relative">
+                        <select required className="w-full bg-surface-container-highest/60 border border-outline-variant/10 text-white rounded-xl p-3 focus:border-primary outline-none transition-all appearance-none" value={transferForm.to_account_id} onChange={(e) => setTransferForm({ ...transferForm, to_account_id: e.target.value })}>
+                          <option value="" className="bg-surface">Selecione a conta...</option>
+                          {accounts.map((acc) => (<option key={acc.id} value={acc.id} className="bg-surface">{acc.name} ({formatCurrencyBR(acc.balance)})</option>))}
+                        </select>
+                        <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary pointer-events-none">expand_more</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 flex gap-3">
+                    <button type="button" onClick={closeTransferModal} className="flex-1 py-3.5 rounded-xl font-bold text-secondary bg-surface-container-high hover:bg-surface-container-highest transition-colors">Cancelar</button>
+                    <button type="submit" className="flex-1 py-3.5 rounded-xl font-bold text-surface bg-on-surface hover:bg-white shadow-lg transition-all active:scale-95">Confirmar</button>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
         </div>
       )}
