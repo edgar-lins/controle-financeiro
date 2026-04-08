@@ -423,6 +423,14 @@ export default function Accounts() {
                   </select>
                   <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary pointer-events-none">expand_more</span>
                 </div>
+                {form.type === "cartao" && !editingId && (
+                  <div className="mt-2 flex items-start gap-2 bg-surface-container-highest/30 border border-outline-variant/10 rounded-xl px-3 py-2.5">
+                    <span className="material-symbols-outlined text-secondary/50 text-sm mt-0.5 flex-shrink-0">info</span>
+                    <p className="text-[11px] text-secondary/60 leading-relaxed">
+                      Se seu banco tem conta corrente <span className="text-white/60">e</span> cartão de crédito, cadastre os dois separadamente. Ex: <span className="text-white/60">"Nubank Conta"</span> e <span className="text-white/60">"Nubank Cartão"</span>.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {form.type !== "cartao" && (
