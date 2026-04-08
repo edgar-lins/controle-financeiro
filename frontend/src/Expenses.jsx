@@ -4,7 +4,6 @@ import { useSummary } from "./SummaryContext";
 import { formatCurrencyBR } from "./utils/format";
 import { CurrencyInput } from "./components/CurrencyInput";
 import { CategorySelect, CATEGORIES } from "./components/CategorySelect";
-import { ConfirmModal } from "./components/ConfirmModal";
 import { Toast } from "./components/Toast";
 import { PeriodSelector } from "./components/PeriodSelector";
 import API_URL from "./config/api";
@@ -29,17 +28,19 @@ export default function Expenses() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
-  const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null, desc: "" });
-  
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null, desc: "", groupId: null, installmentTotal: 1 });
+  const [installmentExpenses, setInstallmentExpenses] = useState([]);
+
   const { refreshSummary } = useSummary();
 
   const [form, setForm] = useState({
-    description: "", amount: "", category: "", group: "", payment_method: "", date: "", account_id: "",
+    description: "", amount: "", category: "", group: "", payment_method: "", date: "", account_id: "", installments: "1",
   });
 
   useEffect(() => {
     fetchExpenses();
     fetchAccounts();
+    fetchInstallments();
   }, [filterMonth, filterYear, showAll]);
 
   useEffect(() => {
@@ -69,6 +70,17 @@ export default function Expenses() {
     }
   }
 
+  async function fetchInstallments() {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_URL}/expenses?all_installments=true`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setInstallmentExpenses(Array.isArray(data) ? data : []);
+    } catch { /* silencioso */ }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (!form.account_id) {
@@ -89,6 +101,7 @@ export default function Expenses() {
           amount: parseFloat(form.amount),
           date: payloadDate,
           account_id: parseInt(form.account_id),
+          installments: editingId ? 1 : (parseInt(form.installments) || 1),
         }),
       });
 
@@ -97,6 +110,7 @@ export default function Expenses() {
         closeModal();
         refreshSummary();
         fetchExpenses();
+        fetchInstallments();
       } else {
         setToast({ show: true, message: "Erro ao salvar", type: "error" });
       }
@@ -105,22 +119,24 @@ export default function Expenses() {
     }
   }
 
-  async function deleteExpense(id) {
+  async function deleteExpense(id, deleteGroup = false) {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL}/expenses/delete?id=${id}`, {
+      const url = `${API_URL}/expenses/delete?id=${id}${deleteGroup ? "&delete_group=true" : ""}`;
+      const res = await fetch(url, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        setToast({ show: true, message: "Gasto removido!", type: "success" });
+        setToast({ show: true, message: deleteGroup ? "Parcelamento cancelado!" : "Gasto removido!", type: "success" });
         refreshSummary();
         fetchExpenses();
+        fetchInstallments();
       }
     } catch (error) {
       setToast({ show: true, message: "Erro de conexão", type: "error" });
     }
-    setDeleteModal({ isOpen: false, id: null, desc: "" });
+    setDeleteModal({ isOpen: false, id: null, desc: "", groupId: null, installmentTotal: 1 });
   }
 
   function openModal(expense = null) {
@@ -128,11 +144,11 @@ export default function Expenses() {
       setEditingId(expense.id);
       const dateStr = expense.date ? expense.date.split('T')[0] : "";
       setForm({
-        description: expense.description, amount: expense.amount.toString(), category: expense.category || "", group: expense.group || "", payment_method: expense.payment_method || "", date: dateStr, account_id: expense.account_id ? expense.account_id.toString() : "",
+        description: expense.description, amount: expense.amount.toString(), category: expense.category || "", group: expense.group || "", payment_method: expense.payment_method || "", date: dateStr, account_id: expense.account_id ? expense.account_id.toString() : "", installments: "1",
       });
     } else {
       setEditingId(null);
-      setForm({ description: "", amount: "", category: "", group: "", payment_method: "", date: new Date().toISOString().split("T")[0], account_id: "" });
+      setForm({ description: "", amount: "", category: "", group: "", payment_method: "", date: new Date().toISOString().split("T")[0], account_id: "", installments: "1" });
     }
     setIsModalOpen(true);
   }
@@ -248,14 +264,21 @@ export default function Expenses() {
                       </td>
                       <td className="px-6 md:px-8 py-5">
                         <p className="text-sm text-on-surface font-medium">{exp.description}</p>
-                        <p className="text-[11px] text-secondary mt-0.5 hidden md:block">{accountName}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-[11px] text-secondary hidden md:block">{accountName}</p>
+                          {exp.installment_total > 1 && (
+                            <span className="text-[10px] font-bold bg-purple-500/15 text-purple-300 border border-purple-500/20 px-1.5 py-0.5 rounded-full">
+                              {exp.installment_number}/{exp.installment_total}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 md:px-8 py-5 text-xs text-secondary font-medium whitespace-nowrap">{dateStr}</td>
                       <td className="px-6 md:px-8 py-5 text-right font-headline font-bold text-tertiary-container whitespace-nowrap">- {formatCurrencyBR(exp.amount)}</td>
                       <td className="px-6 md:px-8 py-5 text-center">
                         <div className="flex items-center justify-center gap-1">
                           <button onClick={() => openModal(exp)} className="p-2 text-secondary hover:text-primary transition-colors"><span className="material-symbols-outlined text-xl">edit</span></button>
-                          <button onClick={() => setDeleteModal({ isOpen: true, id: exp.id, desc: exp.description })} className="p-2 text-secondary hover:text-red-400 transition-colors"><span className="material-symbols-outlined text-xl">delete</span></button>
+                          <button onClick={() => setDeleteModal({ isOpen: true, id: exp.id, desc: exp.description, groupId: exp.installment_group_id, installmentTotal: exp.installment_total })} className="p-2 text-secondary hover:text-red-400 transition-colors"><span className="material-symbols-outlined text-xl">delete</span></button>
                         </div>
                       </td>
                     </tr>
@@ -336,7 +359,7 @@ export default function Expenses() {
                   <div>
                     <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Método de Pagamento</label>
                     <div className="relative">
-                      <select className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-white rounded-xl p-3.5 focus:border-primary outline-none transition-all appearance-none" value={form.payment_method} onChange={(e) => setForm({ ...form, payment_method: e.target.value })}>
+                      <select className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-white rounded-xl p-3.5 focus:border-primary outline-none transition-all appearance-none" value={form.payment_method} onChange={(e) => setForm({ ...form, payment_method: e.target.value, installments: "1" })}>
                         <option value="" className="bg-surface">Selecione (opcional)</option>
                         {PAYMENT_METHODS.map((pm) => (
                           <option key={pm.value} value={pm.value} className="bg-surface">{pm.label}</option>
@@ -345,6 +368,26 @@ export default function Expenses() {
                       <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary pointer-events-none">expand_more</span>
                     </div>
                   </div>
+
+                  {form.payment_method === "credito" && !editingId && (
+                    <div>
+                      <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Parcelamento</label>
+                      <div className="relative">
+                        <select className="w-full bg-surface-container-highest/40 border border-purple-500/20 text-white rounded-xl p-3.5 focus:border-purple-400 outline-none transition-all appearance-none" value={form.installments} onChange={(e) => setForm({ ...form, installments: e.target.value })}>
+                          <option value="1" className="bg-surface">À vista</option>
+                          {[2,3,4,5,6,7,8,9,10,11,12].map(n => (
+                            <option key={n} value={n} className="bg-surface">{n}x</option>
+                          ))}
+                        </select>
+                        <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary pointer-events-none">expand_more</span>
+                      </div>
+                      {parseInt(form.installments) > 1 && form.amount && (
+                        <p className="text-[11px] text-purple-300 mt-1.5 ml-1">
+                          {form.installments}x de {formatCurrencyBR(parseFloat(form.amount) / parseInt(form.installments))} — total {formatCurrencyBR(parseFloat(form.amount))}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Coluna direita — categoria */}
@@ -364,7 +407,100 @@ export default function Expenses() {
         </div>
       )}
 
-      <ConfirmModal isOpen={deleteModal.isOpen} title="Excluir Gasto" message={`Deseja excluir "${deleteModal.desc}"?`} onConfirm={() => deleteExpense(deleteModal.id)} onCancel={() => setDeleteModal({ isOpen: false, id: null, desc: "" })} confirmText="Excluir" isDangerous={true} />
+      {/* Parcelamentos Ativos */}
+      {(() => {
+        const today = new Date();
+        const groups = {};
+        installmentExpenses.forEach(exp => {
+          const gid = exp.installment_group_id ?? exp.id;
+          if (!groups[gid]) groups[gid] = [];
+          groups[gid].push(exp);
+        });
+        const activeGroups = Object.values(groups).filter(g =>
+          g.some(e => new Date(e.date) >= today)
+        );
+        if (activeGroups.length === 0) return null;
+        return (
+          <section className="space-y-4">
+            <h3 className="font-headline font-bold text-xl text-white">Parcelamentos Ativos</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {activeGroups.map(group => {
+                const sorted = [...group].sort((a, b) => new Date(a.date) - new Date(b.date));
+                const first = sorted[0];
+                const upcoming = sorted.filter(e => new Date(e.date) >= today);
+                const paid = sorted.length - upcoming.length;
+                const nextDate = new Date(upcoming[0].date);
+                nextDate.setMinutes(nextDate.getMinutes() + nextDate.getTimezoneOffset());
+                const nextDateStr = nextDate.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+                const groupId = first.installment_group_id ?? first.id;
+                return (
+                  <div key={groupId} className="bg-surface-container-low/60 backdrop-blur-md rounded-2xl p-5 border border-purple-500/20 flex flex-col gap-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-white font-semibold text-sm">{first.description}</p>
+                        <p className="text-secondary/60 text-xs mt-0.5">{first.category || "Diversos"}</p>
+                      </div>
+                      <span className="text-[10px] font-bold bg-purple-500/15 text-purple-300 border border-purple-500/20 px-2 py-1 rounded-full flex-shrink-0">
+                        {paid}/{first.installment_total} pagas
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-purple-300 font-headline font-bold">{formatCurrencyBR(first.amount)}<span className="text-secondary/60 text-xs font-normal">/mês</span></p>
+                        <p className="text-secondary/60 text-xs mt-0.5">Próxima: {nextDateStr}</p>
+                      </div>
+                      <button
+                        onClick={() => setDeleteModal({ isOpen: true, id: upcoming[0].id, desc: first.description, groupId, installmentTotal: first.installment_total })}
+                        className="text-xs text-secondary/50 hover:text-red-400 transition-colors flex items-center gap-1"
+                      >
+                        <span className="material-symbols-outlined text-sm">cancel</span> Cancelar
+                      </button>
+                    </div>
+                    <div className="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+                      <div className="h-full bg-purple-400 rounded-full transition-all" style={{ width: `${(paid / first.installment_total) * 100}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })()}
+
+      {/* Modal de delete — com opção para parcelas */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-surface/80 backdrop-blur-sm" onClick={() => setDeleteModal({ isOpen: false, id: null, desc: "", groupId: null, installmentTotal: 1 })} />
+          <div className="relative bg-[#131b2e] border border-outline-variant/20 shadow-2xl rounded-[2rem] w-full max-w-sm p-7 animate-fade-in">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                <span className="material-symbols-outlined text-red-400 text-lg">delete</span>
+              </div>
+              <h3 className="font-headline text-lg font-bold text-white">Excluir gasto</h3>
+            </div>
+            <p className="text-secondary/80 text-sm mb-5">"{deleteModal.desc}"</p>
+            {deleteModal.installmentTotal > 1 ? (
+              <div className="flex flex-col gap-3">
+                <button onClick={() => deleteExpense(deleteModal.id, false)} className="w-full py-3 rounded-xl font-bold text-white bg-surface-container-high hover:bg-surface-container-highest border border-outline-variant/10 transition-colors text-sm">
+                  Excluir só esta parcela
+                </button>
+                <button onClick={() => deleteExpense(deleteModal.id, true)} className="w-full py-3 rounded-xl font-bold text-white bg-red-600 hover:bg-red-500 transition-colors text-sm active:scale-95">
+                  Cancelar todas as parcelas restantes
+                </button>
+                <button onClick={() => setDeleteModal({ isOpen: false, id: null, desc: "", groupId: null, installmentTotal: 1 })} className="w-full py-3 rounded-xl font-bold text-secondary text-sm hover:text-white transition-colors">
+                  Voltar
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-3">
+                <button onClick={() => setDeleteModal({ isOpen: false, id: null, desc: "", groupId: null, installmentTotal: 1 })} className="flex-1 py-3 rounded-xl font-bold text-secondary bg-surface-container-high hover:bg-surface-container-highest transition-colors">Cancelar</button>
+                <button onClick={() => deleteExpense(deleteModal.id)} className="flex-1 py-3 rounded-xl font-bold text-white bg-red-600 hover:bg-red-500 transition-colors active:scale-95">Excluir</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {toast.show && <Toast message={toast.message} type={toast.type} onClose={() => setToast({ show: false, message: "", type: "success" })} />}
     </div>
   );

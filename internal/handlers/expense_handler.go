@@ -31,6 +31,7 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		PaymentMethod string  `json:"payment_method"`
 		Date          string  `json:"date"`
 		AccountID     *int64  `json:"account_id"`
+		Installments  int     `json:"installments"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -48,42 +49,32 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		expenseDate = parsed
 	}
 
-	expense := models.Expense{
-		Description:   req.Description,
-		Amount:        req.Amount,
-		Category:      req.Category,
-		Group:         req.Group,
-		PaymentMethod: req.PaymentMethod,
-		Date:          expenseDate,
-		AccountID:     req.AccountID,
+	if strings.TrimSpace(req.Group) == "" {
+		req.Group = "essencial"
 	}
-
-	// Default and validate group
-	if strings.TrimSpace(expense.Group) == "" {
-		expense.Group = "essencial"
-	}
-	switch expense.Group {
+	switch req.Group {
 	case "essencial", "lazer", "investimento":
 	default:
-		expense.Group = "essencial"
+		req.Group = "essencial"
+	}
+
+	if req.Installments < 1 {
+		req.Installments = 1
 	}
 
 	userIDVal := r.Context().Value(middleware.UserIDKey)
 	userID, _ := userIDVal.(int)
 
-	// Se não tem account_id, cria/busca Carteira Geral
-	if expense.AccountID == nil {
+	if req.AccountID == nil {
 		accountHandler := &AccountHandler{DB: h.DB}
 		defaultAccountID, err := accountHandler.GetOrCreateDefaultAccount(userID)
 		if err != nil {
 			http.Error(w, "Erro ao criar conta padrão", http.StatusInternalServerError)
-			fmt.Println("Erro ao criar conta padrão:", err)
 			return
 		}
-		expense.AccountID = &defaultAccountID
+		req.AccountID = &defaultAccountID
 	}
 
-	// Start transaction
 	tx, err := h.DB.Begin()
 	if err != nil {
 		http.Error(w, "Erro ao iniciar transação", http.StatusInternalServerError)
@@ -91,31 +82,78 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	query := `
-		INSERT INTO expenses (description, amount, category, "group", payment_method, date, user_id, account_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+	installmentAmount := req.Amount
+	if req.Installments > 1 {
+		installmentAmount = req.Amount / float64(req.Installments)
+	}
+
+	insertQuery := `
+		INSERT INTO expenses (description, amount, category, "group", payment_method, date, user_id, account_id, installment_number, installment_total, installment_group_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id;
 	`
 
-	err = tx.QueryRow(query, expense.Description, expense.Amount, expense.Category, expense.Group, expense.PaymentMethod, expense.Date, userID, expense.AccountID).Scan(&expense.ID)
+	// Cria a primeira parcela
+	var firstID int64
+	err = tx.QueryRow(insertQuery,
+		req.Description, installmentAmount, req.Category, req.Group,
+		req.PaymentMethod, expenseDate, userID, req.AccountID,
+		1, req.Installments, nil,
+	).Scan(&firstID)
 	if err != nil {
-		http.Error(w, "Erro ao inserir gasto no banco", http.StatusInternalServerError)
+		http.Error(w, "Erro ao inserir gasto", http.StatusInternalServerError)
 		fmt.Println("Erro:", err)
 		return
 	}
 
-	if expense.AccountID != nil {
-		_, err = tx.Exec(`UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND user_id = $3`, expense.Amount, expense.AccountID, userID)
+	// Define o group_id como o ID da primeira parcela
+	if _, err = tx.Exec(`UPDATE expenses SET installment_group_id = $1 WHERE id = $1`, firstID); err != nil {
+		http.Error(w, "Erro ao definir grupo de parcelas", http.StatusInternalServerError)
+		return
+	}
+
+	// Cria as parcelas seguintes (sem debitar saldo)
+	for i := 2; i <= req.Installments; i++ {
+		installmentDate := expenseDate.AddDate(0, i-1, 0)
+		_, err = tx.Exec(insertQuery,
+			req.Description, installmentAmount, req.Category, req.Group,
+			req.PaymentMethod, installmentDate, userID, req.AccountID,
+			i, req.Installments, firstID,
+		)
+		if err != nil {
+			http.Error(w, "Erro ao inserir parcela", http.StatusInternalServerError)
+			fmt.Println("Erro parcela:", err)
+			return
+		}
+	}
+
+	// Atualiza saldo apenas para compras à vista (parcela única)
+	if req.Installments == 1 && req.AccountID != nil {
+		_, err = tx.Exec(`UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND user_id = $3`,
+			req.Amount, req.AccountID, userID)
 		if err != nil {
 			http.Error(w, "Erro ao atualizar saldo da conta", http.StatusInternalServerError)
 			return
 		}
 	}
 
-	err = tx.Commit()
-	if err != nil {
+	if err = tx.Commit(); err != nil {
 		http.Error(w, "Erro ao confirmar transação", http.StatusInternalServerError)
 		return
+	}
+
+	expense := models.Expense{
+		ID:                firstID,
+		Description:       req.Description,
+		Amount:            installmentAmount,
+		Category:          req.Category,
+		Group:             req.Group,
+		PaymentMethod:     req.PaymentMethod,
+		Date:              expenseDate,
+		AccountID:         req.AccountID,
+		InstallmentNumber: 1,
+		InstallmentTotal:  req.Installments,
+		InstallmentGroupID: &firstID,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -132,23 +170,28 @@ func (h *ExpenseHandler) GetExpenses(w http.ResponseWriter, r *http.Request) {
 	userID, _ := userIDVal.(int)
 	monthParam := r.URL.Query().Get("month")
 	yearParam := r.URL.Query().Get("year")
+	allInstallments := r.URL.Query().Get("all_installments") == "true"
 
-	baseQuery := `SELECT id, description, amount, category, "group", payment_method, date, account_id FROM expenses WHERE user_id = $1`
+	baseQuery := `SELECT id, description, amount, category, "group", payment_method, date, account_id, installment_number, installment_total, installment_group_id FROM expenses WHERE user_id = $1`
 	args := []interface{}{userID}
 
-	if monthParam != "" {
-		baseQuery += " AND EXTRACT(MONTH FROM date) = $" + strconv.Itoa(len(args)+1)
-		monthVal, _ := strconv.Atoi(monthParam)
-		args = append(args, monthVal)
+	if allInstallments {
+		// Retorna apenas gastos parcelados, sem filtro de mês
+		baseQuery += " AND installment_total > 1"
+	} else {
+		if monthParam != "" {
+			baseQuery += " AND EXTRACT(MONTH FROM date) = $" + strconv.Itoa(len(args)+1)
+			monthVal, _ := strconv.Atoi(monthParam)
+			args = append(args, monthVal)
+		}
+		if yearParam != "" {
+			baseQuery += " AND EXTRACT(YEAR FROM date) = $" + strconv.Itoa(len(args)+1)
+			yearVal, _ := strconv.Atoi(yearParam)
+			args = append(args, yearVal)
+		}
 	}
 
-	if yearParam != "" {
-		baseQuery += " AND EXTRACT(YEAR FROM date) = $" + strconv.Itoa(len(args)+1)
-		yearVal, _ := strconv.Atoi(yearParam)
-		args = append(args, yearVal)
-	}
-
-	baseQuery += " ORDER BY date DESC"
+	baseQuery += " ORDER BY date ASC"
 
 	rows, err := h.DB.Query(baseQuery, args...)
 	if err != nil {
@@ -161,7 +204,11 @@ func (h *ExpenseHandler) GetExpenses(w http.ResponseWriter, r *http.Request) {
 	var expenses []models.Expense
 	for rows.Next() {
 		var expense models.Expense
-		err := rows.Scan(&expense.ID, &expense.Description, &expense.Amount, &expense.Category, &expense.Group, &expense.PaymentMethod, &expense.Date, &expense.AccountID)
+		err := rows.Scan(
+			&expense.ID, &expense.Description, &expense.Amount, &expense.Category,
+			&expense.Group, &expense.PaymentMethod, &expense.Date, &expense.AccountID,
+			&expense.InstallmentNumber, &expense.InstallmentTotal, &expense.InstallmentGroupID,
+		)
 		if err != nil {
 			http.Error(w, "Erro ao ler dados do banco", http.StatusInternalServerError)
 			return
@@ -213,28 +260,15 @@ func (h *ExpenseHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		expenseDate = parsed
 	}
 
-	expense := models.Expense{
-		Description:   req.Description,
-		Amount:        req.Amount,
-		Category:      req.Category,
-		Group:         req.Group,
-		PaymentMethod: req.PaymentMethod,
-		Date:          expenseDate,
-		AccountID:     req.AccountID,
+	if strings.TrimSpace(req.Group) == "" {
+		req.Group = "essencial"
 	}
-
-	if strings.TrimSpace(expense.Group) == "" {
-		expense.Group = "essencial"
-	}
-
-	// Guard invalid values to satisfy check constraint
-	switch expense.Group {
+	switch req.Group {
 	case "essencial", "lazer", "investimento":
 	default:
-		expense.Group = "essencial"
+		req.Group = "essencial"
 	}
 
-	// Start transaction
 	tx, err := h.DB.Begin()
 	if err != nil {
 		http.Error(w, "Erro ao iniciar transação", http.StatusInternalServerError)
@@ -242,43 +276,42 @@ func (h *ExpenseHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	// Get old expense data
 	var oldAmount float64
 	var oldAccountID *int64
-	err = tx.QueryRow(`SELECT amount, account_id FROM expenses WHERE id = $1 AND user_id = $2`, id, userID).Scan(&oldAmount, &oldAccountID)
+	var installmentTotal int
+	err = tx.QueryRow(`SELECT amount, account_id, installment_total FROM expenses WHERE id = $1 AND user_id = $2`, id, userID).Scan(&oldAmount, &oldAccountID, &installmentTotal)
 	if err != nil {
 		http.Error(w, "Erro ao buscar gasto", http.StatusInternalServerError)
 		return
 	}
 
-	// Update expense
 	query := `UPDATE expenses SET description = $1, amount = $2, category = $3, "group" = $4, payment_method = $5, date = $6, account_id = $7 WHERE id = $8 AND user_id = $9`
-	_, err = tx.Exec(query, expense.Description, expense.Amount, expense.Category, expense.Group, expense.PaymentMethod, expense.Date, expense.AccountID, id, userID)
+	_, err = tx.Exec(query, req.Description, req.Amount, req.Category, req.Group, req.PaymentMethod, expenseDate, req.AccountID, id, userID)
 	if err != nil {
 		http.Error(w, "Erro ao atualizar gasto", http.StatusInternalServerError)
 		fmt.Println("Erro:", err)
 		return
 	}
 
-	// Reverte o valor na conta antiga e aplica na nova
-	if oldAccountID != nil {
-		_, err = tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3`, oldAmount, oldAccountID, userID)
-		if err != nil {
-			http.Error(w, "Erro ao reverter saldo da conta antiga", http.StatusInternalServerError)
-			return
+	// Ajusta saldo apenas para gastos à vista
+	if installmentTotal == 1 {
+		if oldAccountID != nil {
+			_, err = tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3`, oldAmount, oldAccountID, userID)
+			if err != nil {
+				http.Error(w, "Erro ao reverter saldo da conta antiga", http.StatusInternalServerError)
+				return
+			}
+		}
+		if req.AccountID != nil {
+			_, err = tx.Exec(`UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND user_id = $3`, req.Amount, req.AccountID, userID)
+			if err != nil {
+				http.Error(w, "Erro ao atualizar saldo da nova conta", http.StatusInternalServerError)
+				return
+			}
 		}
 	}
 
-	if expense.AccountID != nil {
-		_, err = tx.Exec(`UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND user_id = $3`, expense.Amount, expense.AccountID, userID)
-		if err != nil {
-			http.Error(w, "Erro ao atualizar saldo da nova conta", http.StatusInternalServerError)
-			return
-		}
-	}
-
-	err = tx.Commit()
-	if err != nil {
+	if err = tx.Commit(); err != nil {
 		http.Error(w, "Erro ao confirmar transação", http.StatusInternalServerError)
 		return
 	}
@@ -299,10 +332,10 @@ func (h *ExpenseHandler) DeleteExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	deleteGroup := r.URL.Query().Get("delete_group") == "true"
 	userIDVal := r.Context().Value(middleware.UserIDKey)
 	userID, _ := userIDVal.(int)
 
-	// Start transaction
 	tx, err := h.DB.Begin()
 	if err != nil {
 		http.Error(w, "Erro ao iniciar transação", http.StatusInternalServerError)
@@ -310,32 +343,40 @@ func (h *ExpenseHandler) DeleteExpense(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	// Get expense data before deleting to restore account balance
 	var amount float64
 	var accountID *int64
-	err = tx.QueryRow(`SELECT amount, account_id FROM expenses WHERE id = $1 AND user_id = $2`, id, userID).Scan(&amount, &accountID)
+	var installmentTotal int
+	var installmentGroupID *int64
+	err = tx.QueryRow(`SELECT amount, account_id, installment_total, installment_group_id FROM expenses WHERE id = $1 AND user_id = $2`, id, userID).Scan(&amount, &accountID, &installmentTotal, &installmentGroupID)
 	if err != nil {
 		http.Error(w, "Erro ao buscar gasto", http.StatusInternalServerError)
 		return
 	}
 
-	// Delete expense
-	_, err = tx.Exec(`DELETE FROM expenses WHERE id = $1 AND user_id = $2`, id, userID)
-	if err != nil {
-		http.Error(w, "Erro ao deletar gasto", http.StatusInternalServerError)
-		return
-	}
-
-	if accountID != nil {
-		_, err = tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3`, amount, accountID, userID)
+	if deleteGroup && installmentGroupID != nil {
+		// Deleta todas as parcelas do grupo
+		_, err = tx.Exec(`DELETE FROM expenses WHERE installment_group_id = $1 AND user_id = $2`, installmentGroupID, userID)
 		if err != nil {
-			http.Error(w, "Erro ao restaurar saldo da conta", http.StatusInternalServerError)
+			http.Error(w, "Erro ao deletar parcelas", http.StatusInternalServerError)
 			return
+		}
+	} else {
+		_, err = tx.Exec(`DELETE FROM expenses WHERE id = $1 AND user_id = $2`, id, userID)
+		if err != nil {
+			http.Error(w, "Erro ao deletar gasto", http.StatusInternalServerError)
+			return
+		}
+		// Restaura saldo apenas para gastos à vista
+		if installmentTotal == 1 && accountID != nil {
+			_, err = tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3`, amount, accountID, userID)
+			if err != nil {
+				http.Error(w, "Erro ao restaurar saldo da conta", http.StatusInternalServerError)
+				return
+			}
 		}
 	}
 
-	err = tx.Commit()
-	if err != nil {
+	if err = tx.Commit(); err != nil {
 		http.Error(w, "Erro ao confirmar transação", http.StatusInternalServerError)
 		return
 	}
