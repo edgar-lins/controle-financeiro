@@ -86,13 +86,48 @@ export default function Dashboard({ userName }) {
 
   // Cálculos
   const totalNetWorth = accounts.reduce((sum, acc) => sum + acc.balance, 0);
-  
+
   const totalGastos = (summary.real_fixos || 0) + (summary.real_lazer || 0) + (summary.real_invest || 0);
   const groupShare = (val) => totalGastos > 0 ? ((val / totalGastos) * 100).toFixed(0) : 0;
 
+  const isEmpty = expenses.length === 0 && summary.renda_total === 0;
+
+  const steps = [
+    { icon: "account_balance_wallet", label: "Adicione uma conta", sub: "Conecte seu banco ou carteira", to: "/accounts", color: "text-primary", bg: "bg-primary/10", border: "border-primary/20" },
+    { icon: "trending_up", label: "Registre uma renda", sub: "Seu salário ou outra entrada", to: "/incomes", color: "text-sky-400", bg: "bg-sky-400/10", border: "border-sky-400/20" },
+    { icon: "trending_down", label: "Registre um gasto", sub: "Qualquer despesa do mês", to: "/expenses", color: "text-amber-400", bg: "bg-amber-400/10", border: "border-amber-400/20" },
+  ];
+
   return (
     <div className="space-y-8 animate-fade-in pb-10">
-      
+
+      {/* Empty state — primeiro acesso */}
+      {isEmpty && (
+        <section className="relative overflow-hidden rounded-[2rem] p-8 bg-[rgba(45,52,73,0.4)] backdrop-blur-xl border border-primary/10">
+          <div className="absolute -top-16 -right-16 w-48 h-48 bg-primary/10 rounded-full blur-[60px]"></div>
+          <div className="relative z-10">
+            <p className="text-primary text-xs font-bold uppercase tracking-widest mb-2">Bem-vindo ao ProsperFlow</p>
+            <h2 className="font-headline font-extrabold text-2xl text-white mb-1">Por onde começar?</h2>
+            <p className="text-secondary/70 text-sm mb-8">Siga os 3 passos abaixo para ter seu painel completo em minutos.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {steps.map(({ icon, label, sub, to, color, bg, border }, i) => (
+                <button key={to} onClick={() => navigate(to)} className={`flex items-center gap-4 p-4 rounded-2xl border ${border} ${bg} hover:brightness-110 transition-all text-left group`}>
+                  <div className={`w-10 h-10 rounded-xl ${bg} border ${border} flex items-center justify-center flex-shrink-0`}>
+                    <span className={`material-symbols-outlined text-xl ${color}`}>{icon}</span>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-secondary/60 font-bold uppercase tracking-wider mb-0.5">Passo {i + 1}</p>
+                    <p className="text-white font-semibold text-sm leading-tight">{label}</p>
+                    <p className="text-secondary/60 text-xs mt-0.5">{sub}</p>
+                  </div>
+                  <span className={`material-symbols-outlined text-sm ${color} ml-auto opacity-0 group-hover:opacity-100 transition-opacity`}>arrow_forward</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Net Worth Hero Card */}
       <section className="relative overflow-hidden rounded-[2rem] p-8 bg-[rgba(45,52,73,0.4)] backdrop-blur-xl shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)] border border-white/5">
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/10 rounded-full blur-[80px]"></div>
