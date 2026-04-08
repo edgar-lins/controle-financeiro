@@ -22,6 +22,7 @@ func SetupRoutes(db *sql.DB) {
 	http.HandleFunc("/auth/login", authHandler.Login)
 	http.HandleFunc("/auth/forgot-password", authHandler.ForgotPassword)
 	http.HandleFunc("/auth/reset-password", authHandler.ResetPassword)
+	http.HandleFunc("/auth/delete-account", middleware.WithAuth(authHandler.DeleteAccount))
 
 	http.HandleFunc("/expenses", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {

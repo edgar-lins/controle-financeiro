@@ -9,6 +9,8 @@ export default function Settings() {
     investment_percent: 20,
   });
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   const firstName = localStorage.getItem("firstName") || "Usuário";
   const lastName = localStorage.getItem("lastName") || "";
@@ -44,6 +46,25 @@ export default function Settings() {
 
   function handleProClick() {
     setToast({ show: true, message: "A assinatura PRO estará disponível em breve!", type: "error" });
+  }
+
+  async function handleDeleteAccount() {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_URL}/auth/delete-account`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        localStorage.clear();
+        window.location.href = "/";
+      } else {
+        setToast({ show: true, message: "Erro ao excluir conta. Tente novamente.", type: "error" });
+        setDeleteModal(false);
+      }
+    } catch {
+      setToast({ show: true, message: "Erro de conexão", type: "error" });
+    }
   }
 
   return (
@@ -210,6 +231,64 @@ export default function Settings() {
           <span>Sair da Conta</span>
         </button>
       </footer>
+
+      {/* Zona de Perigo */}
+      <section>
+        <h3 className="text-lg font-headline font-bold text-red-400/80 mb-6 ml-2">Zona de Perigo</h3>
+        <div className="bg-surface-container-low/60 backdrop-blur-md rounded-3xl p-6 md:p-8 border border-red-500/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div>
+            <p className="text-white font-semibold mb-1">Excluir minha conta</p>
+            <p className="text-secondary/60 text-sm">Remove permanentemente sua conta e todos os dados associados. Essa ação não pode ser desfeita.</p>
+          </div>
+          <button
+            onClick={() => { setDeleteModal(true); setDeleteConfirmText(""); }}
+            className="flex-shrink-0 px-6 py-3 text-sm font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-2xl transition-colors"
+          >
+            Excluir conta
+          </button>
+        </div>
+      </section>
+
+      {/* Modal de confirmação de exclusão */}
+      {deleteModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-surface/80 backdrop-blur-sm" onClick={() => setDeleteModal(false)}></div>
+          <div className="relative bg-[#131b2e] border border-red-500/20 shadow-2xl rounded-[2rem] w-full max-w-md p-8 animate-fade-in">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+                <span className="material-symbols-outlined text-red-400">warning</span>
+              </div>
+              <h3 className="font-headline text-xl font-bold text-white">Excluir conta</h3>
+            </div>
+            <p className="text-secondary/80 text-sm mb-2">Todos os seus dados serão removidos permanentemente:</p>
+            <ul className="text-secondary/60 text-sm mb-6 space-y-1 ml-4 list-disc">
+              <li>Gastos e rendas</li>
+              <li>Contas e transferências</li>
+              <li>Metas financeiras</li>
+            </ul>
+            <p className="text-sm text-white mb-2">Digite <span className="font-mono font-bold text-red-400">CONFIRMAR</span> para continuar:</p>
+            <input
+              type="text"
+              className="w-full bg-surface-container-highest/40 border border-red-500/20 text-white rounded-xl p-3.5 focus:border-red-400 focus:ring-1 focus:ring-red-400 outline-none transition-all mb-6"
+              placeholder="CONFIRMAR"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+            />
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteModal(false)} className="flex-1 py-3.5 rounded-xl font-bold text-secondary bg-surface-container-high hover:bg-surface-container-highest transition-colors">
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleteConfirmText !== "CONFIRMAR"}
+                className="flex-1 py-3.5 rounded-xl font-bold text-white bg-red-600 hover:bg-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95"
+              >
+                Excluir tudo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast.show && <Toast message={toast.message} type={toast.type} onClose={() => setToast({ show: false, message: "", type: "success" })} />}
     </div>

@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edgar-lins/controle-financeiro/internal/middleware"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -266,6 +267,52 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *AuthHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userIDVal := r.Context().Value(middleware.UserIDKey)
+	userID, _ := userIDVal.(int)
+
+	tx, err := h.DB.Begin()
+	if err != nil {
+		http.Error(w, "Erro interno", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	// Deleta na ordem certa para respeitar FKs
+	tables := []string{
+		"password_reset_tokens",
+		"transfers",
+		"expenses",
+		"incomes",
+		"goals",
+		"user_preferences",
+		"accounts",
+	}
+	for _, table := range tables {
+		if _, err = tx.Exec(`DELETE FROM `+table+` WHERE user_id = $1`, userID); err != nil {
+			http.Error(w, "Erro ao remover dados", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if _, err = tx.Exec(`DELETE FROM users WHERE id = $1`, userID); err != nil {
+		http.Error(w, "Erro ao remover conta", http.StatusInternalServerError)
+		return
+	}
+
+	if err = tx.Commit(); err != nil {
+		http.Error(w, "Erro ao confirmar operação", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func sendResetEmail(to, firstName, resetLink string) {
