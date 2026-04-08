@@ -316,10 +316,13 @@ export default function Expenses() {
 
                   <div>
                     <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Conta</label>
-                    <select required className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-white rounded-xl p-3.5 focus:border-primary outline-none transition-all appearance-none" value={form.account_id} onChange={(e) => setForm({ ...form, account_id: e.target.value })}>
-                      <option value="" className="bg-surface">Selecione...</option>
-                      {accounts.map((acc) => (<option key={acc.id} value={acc.id} className="bg-surface">{acc.name}</option>))}
-                    </select>
+                    <div className="relative">
+                      <select required className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-white rounded-xl p-3.5 focus:border-primary outline-none transition-all appearance-none" value={form.account_id} onChange={(e) => setForm({ ...form, account_id: e.target.value })}>
+                        <option value="" className="bg-surface">Selecione...</option>
+                        {accounts.map((acc) => (<option key={acc.id} value={acc.id} className="bg-surface">{acc.name}</option>))}
+                      </select>
+                      <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary pointer-events-none">expand_more</span>
+                    </div>
                     {form.account_id && accounts.find(a => String(a.id) === String(form.account_id))?.type === "cartao" && (
                       <div className="mt-2 flex items-start gap-2 bg-purple-500/10 border border-purple-500/20 rounded-xl px-3 py-2.5">
                         <span className="material-symbols-outlined text-purple-400 text-sm mt-0.5 flex-shrink-0">info</span>
@@ -328,6 +331,19 @@ export default function Expenses() {
                         </p>
                       </div>
                     )}
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-secondary font-bold uppercase tracking-wider mb-1 ml-1">Método de Pagamento</label>
+                    <div className="relative">
+                      <select className="w-full bg-surface-container-highest/40 border border-outline-variant/10 text-white rounded-xl p-3.5 focus:border-primary outline-none transition-all appearance-none" value={form.payment_method} onChange={(e) => setForm({ ...form, payment_method: e.target.value })}>
+                        <option value="" className="bg-surface">Selecione (opcional)</option>
+                        {PAYMENT_METHODS.map((pm) => (
+                          <option key={pm.value} value={pm.value} className="bg-surface">{pm.label}</option>
+                        ))}
+                      </select>
+                      <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary pointer-events-none">expand_more</span>
+                    </div>
                   </div>
                 </div>
 
