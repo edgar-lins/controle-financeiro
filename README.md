@@ -40,6 +40,20 @@ createdb controle_financeiro
 
 > As migrations rodam automaticamente na inicialização do servidor.
 
+### Testes de integração (backend)
+
+```bash
+# Cria o banco de teste (apenas uma vez)
+createdb controle_financeiro_test
+
+# Roda os testes
+TEST_DATABASE_URL="host=localhost port=5432 user=<seu-usuario> dbname=controle_financeiro_test sslmode=disable" \
+  go test ./internal/... -v
+
+# Sem TEST_DATABASE_URL os testes são pulados com SKIP (não falham)
+go test ./internal/...
+```
+
 ### 3. Backend
 
 ```bash

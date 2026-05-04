@@ -1,7 +1,8 @@
-import { HiHome, HiShoppingCart, HiTruck, HiLightningBolt, HiHeart, HiAcademicCap, HiSparkles, HiShoppingBag, HiTrendingUp, HiCreditCard } from "react-icons/hi";
+import { HiHome, HiShoppingCart, HiLightningBolt, HiHeart, HiAcademicCap, HiSparkles, HiShoppingBag, HiTrendingUp, HiCreditCard } from "react-icons/hi";
 import { MdDirectionsBus, MdDirectionsCar, MdCardGiftcard, MdVolunteerActivism } from "react-icons/md";
+import type { Expense } from "../types";
 
-export const CATEGORIES = [
+export const CATEGORIES: { value: string; label: string; icon: React.ElementType; color: string; description: string }[] = [
   { value: "moradia", label: "Moradia", icon: HiHome, color: "text-primary", description: "Aluguel, condomínio, IPTU" },
   { value: "alimentacao", label: "Alimentação", icon: HiShoppingCart, color: "text-primary", description: "Mercado, feira" },
   { value: "transporte", label: "Transporte", icon: MdDirectionsBus, color: "text-primary", description: "Combustível, transporte público" },
@@ -23,17 +24,22 @@ export const CATEGORIES = [
   { value: "outros", label: "Outros", icon: HiShoppingBag, color: "text-primary", description: "Outros gastos" },
 ];
 
-const GROUPS = [
+const GROUPS: { value: Expense["group"]; label: string; description: string }[] = [
   { value: "essencial", label: "Essenciais", description: "Gastos necessários" },
   { value: "lazer", label: "Estilo de Vida", description: "Desejos e lazer" },
   { value: "investimento", label: "Investimento", description: "Poupança e futuro" },
 ];
 
-export function CategorySelect({ value, group, onChange, className = "" }) {
+interface CategorySelectProps {
+  value: string;
+  group: Expense["group"];
+  onChange: (selection: { category: string; group: Expense["group"] }) => void;
+  className?: string;
+}
 
+export function CategorySelect({ value, group, onChange, className = "" }: CategorySelectProps) {
   return (
     <div className={`space-y-3 ${className}`}>
-      {/* Category grid */}
       <div>
         <label className="block text-[10px] font-bold uppercase tracking-wider text-secondary mb-2">Categoria</label>
         <div className="grid grid-cols-3 gap-1.5 max-h-[180px] overflow-y-auto custom-scrollbar pr-0.5">
@@ -55,7 +61,6 @@ export function CategorySelect({ value, group, onChange, className = "" }) {
         </div>
       </div>
 
-      {/* Group selection */}
       <div>
         <label className="block text-[10px] font-bold uppercase tracking-wider text-secondary mb-2">Classificação</label>
         <div className="flex flex-col gap-1.5">

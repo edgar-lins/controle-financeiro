@@ -180,8 +180,9 @@ func (h *GoalHandler) AddMoneyToGoal(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 
 	// Get current goal data
+	var goalName string
 	var currentAmount, targetAmount float64
-	err = tx.QueryRow(`SELECT current_amount, target_amount FROM goals WHERE id = $1 AND user_id = $2`, id, userID).Scan(&currentAmount, &targetAmount)
+	err = tx.QueryRow(`SELECT name, current_amount, target_amount FROM goals WHERE id = $1 AND user_id = $2`, id, userID).Scan(&goalName, &currentAmount, &targetAmount)
 	if err != nil {
 		http.Error(w, "Erro ao buscar meta", http.StatusInternalServerError)
 		return
@@ -198,6 +199,17 @@ func (h *GoalHandler) AddMoneyToGoal(w http.ResponseWriter, r *http.Request) {
 	_, err = tx.Exec(`UPDATE goals SET current_amount = $1, completed_at = $2 WHERE id = $3 AND user_id = $4`, newCurrentAmount, completedAt, id, userID)
 	if err != nil {
 		http.Error(w, "Erro ao atualizar meta", http.StatusInternalServerError)
+		return
+	}
+
+	// Registra o aporte como despesa de "investimento" para aparecer no 50/30/20.
+	// Não altera o saldo da conta aqui — a dedução abaixo já cobre isso.
+	_, err = tx.Exec(`
+		INSERT INTO expenses (description, amount, category, "group", payment_method, date, user_id, account_id, installment_number, installment_total)
+		VALUES ($1, $2, 'poupanca', 'investimento', '', CURRENT_DATE, $3, $4, 1, 1)
+	`, "Aporte: "+goalName, req.Amount, userID, req.AccountID)
+	if err != nil {
+		http.Error(w, "Erro ao registrar aporte como despesa", http.StatusInternalServerError)
 		return
 	}
 

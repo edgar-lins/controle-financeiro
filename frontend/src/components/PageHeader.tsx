@@ -1,7 +1,15 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { HiInformationCircle } from "react-icons/hi";
 
-export function PageHeader({ title, subtitle, description, colorClass = "from-blue-600 to-cyan-600", greeting }) {
+interface PageHeaderProps {
+  title: string;
+  subtitle?: string;
+  description?: string;
+  colorClass?: string;
+  greeting?: ReactNode;
+}
+
+export function PageHeader({ title, subtitle, description, colorClass = "from-blue-600 to-cyan-600", greeting }: PageHeaderProps) {
   const [showInfo, setShowInfo] = useState(false);
 
   return (

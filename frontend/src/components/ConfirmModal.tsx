@@ -1,4 +1,15 @@
-export function ConfirmModal({ isOpen, title, message, onConfirm, onCancel, confirmText = "Confirmar", cancelText = "Cancelar", isDangerous = false }) {
+interface ConfirmModalProps {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  confirmText?: string;
+  cancelText?: string;
+  isDangerous?: boolean;
+}
+
+export function ConfirmModal({ isOpen, title, message, onConfirm, onCancel, confirmText = "Confirmar", cancelText = "Cancelar", isDangerous = false }: ConfirmModalProps) {
   if (!isOpen) return null;
 
   return (
@@ -6,7 +17,7 @@ export function ConfirmModal({ isOpen, title, message, onConfirm, onCancel, conf
       <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 max-w-sm w-full mx-4 shadow-2xl">
         <h2 className="text-xl font-bold text-white mb-2">{title}</h2>
         <p className="text-gray-300 mb-6">{message}</p>
-        
+
         <div className="flex gap-3 justify-end">
           <button
             onClick={onCancel}

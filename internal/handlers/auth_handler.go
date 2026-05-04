@@ -7,9 +7,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/edgar-lins/controle-financeiro/internal/middleware"
@@ -39,40 +39,19 @@ type TokenResponse struct {
 	LastName  string `json:"last_name"`
 }
 
-// Rate Limiter para proteção contra brute force
-type RateLimiter struct {
-	attempts map[string][]time.Time
-	mu       sync.Mutex
-}
+// isLoginAllowed registra a tentativa e retorna false se o IP excedeu o limite.
+// Insere primeiro para eliminar a race condition entre leitura e escrita:
+// mesmo com requisições concorrentes, o COUNT sempre reflete as tentativas reais.
+func (h *AuthHandler) isLoginAllowed(ip string) bool {
+	cutoff := time.Now().Add(-15 * time.Minute)
 
-var loginLimiter = &RateLimiter{
-	attempts: make(map[string][]time.Time),
-}
+	h.DB.Exec(`DELETE FROM login_attempts WHERE ip = $1 AND attempted_at < $2`, ip, cutoff)
+	h.DB.Exec(`INSERT INTO login_attempts (ip) VALUES ($1)`, ip)
 
-// IsAllowed verifica se um IP pode fazer uma tentativa de login
-func (rl *RateLimiter) IsAllowed(ip string, maxAttempts int, windowMinutes int) bool {
-	rl.mu.Lock()
-	defer rl.mu.Unlock()
+	var count int
+	h.DB.QueryRow(`SELECT COUNT(*) FROM login_attempts WHERE ip = $1`, ip).Scan(&count)
 
-	now := time.Now()
-	cutoff := now.Add(-time.Duration(windowMinutes) * time.Minute)
-
-	// Filtrar tentativas antigas
-	recent := []time.Time{}
-	for _, t := range rl.attempts[ip] {
-		if t.After(cutoff) {
-			recent = append(recent, t)
-		}
-	}
-
-	rl.attempts[ip] = recent
-
-	if len(recent) >= maxAttempts {
-		return false // Bloqueado
-	}
-
-	rl.attempts[ip] = append(rl.attempts[ip], now)
-	return true // Permitido
+	return count <= 5
 }
 
 func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
@@ -108,10 +87,9 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Rate limiting: máx 5 tentativas por IP em 15 minutos
 	clientIP := r.RemoteAddr
-	if !loginLimiter.IsAllowed(clientIP, 5, 15) {
-		w.Header().Set("Retry-After", "900") // 15 minutos em segundos
+	if !h.isLoginAllowed(clientIP) {
+		w.Header().Set("Retry-After", "900")
 		http.Error(w, "Muitas tentativas de login. Tente novamente em 15 minutos.", http.StatusTooManyRequests)
 		return
 	}
@@ -138,6 +116,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	claims := jwt.MapClaims{
 		"sub": id,
+		"iat": time.Now().Unix(),
 		"exp": time.Now().Add(24 * time.Hour).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -253,7 +232,7 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	if _, err = tx.Exec(`UPDATE users SET password_hash = $1 WHERE id = $2`, string(hash), userID); err != nil {
+	if _, err = tx.Exec(`UPDATE users SET password_hash = $1, password_changed_at = NOW() WHERE id = $2`, string(hash), userID); err != nil {
 		http.Error(w, "Erro ao atualizar senha", http.StatusInternalServerError)
 		return
 	}
@@ -275,8 +254,26 @@ func (h *AuthHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var req struct {
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Password == "" {
+		http.Error(w, "Senha obrigatória", http.StatusBadRequest)
+		return
+	}
+
 	userIDVal := r.Context().Value(middleware.UserIDKey)
 	userID, _ := userIDVal.(int)
+
+	var hash string
+	if err := h.DB.QueryRow(`SELECT password_hash FROM users WHERE id = $1`, userID).Scan(&hash); err != nil {
+		http.Error(w, "Erro ao verificar credenciais", http.StatusInternalServerError)
+		return
+	}
+	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(req.Password)) != nil {
+		http.Error(w, "Senha incorreta", http.StatusUnauthorized)
+		return
+	}
 
 	tx, err := h.DB.Begin()
 	if err != nil {
@@ -318,8 +315,7 @@ func (h *AuthHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 func sendResetEmail(to, firstName, resetLink string) {
 	apiKey := os.Getenv("RESEND_API_KEY")
 	if apiKey == "" {
-		// Modo dev: loga o link no console em vez de enviar email
-		fmt.Printf("[DEV] Reset link para %s: %s\n", to, resetLink)
+		slog.Info("reset link gerado (dev)", "to", to, "link", resetLink)
 		return
 	}
 

@@ -3,7 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -62,8 +62,8 @@ func (h *IncomeHandler) CreateIncome(w http.ResponseWriter, r *http.Request) {
 		accountHandler := &AccountHandler{DB: h.DB}
 		defaultAccountID, err := accountHandler.GetOrCreateDefaultAccount(userID)
 		if err != nil {
+			slog.Error("erro ao criar conta padrão", "error", err, "userID", userID)
 			http.Error(w, "Erro ao criar conta padrão", http.StatusInternalServerError)
-			fmt.Println("Erro ao criar conta padrão:", err)
 			return
 		}
 		income.AccountID = &defaultAccountID
@@ -85,8 +85,8 @@ func (h *IncomeHandler) CreateIncome(w http.ResponseWriter, r *http.Request) {
 
 	err = tx.QueryRow(query, income.Description, income.Amount, income.Date, income.Month, income.Year, userID, income.AccountID).Scan(&income.ID)
 	if err != nil {
+		slog.Error("erro ao inserir renda", "error", err, "userID", userID)
 		http.Error(w, "Erro ao inserir renda", http.StatusInternalServerError)
-		fmt.Println("Erro:", err)
 		return
 	}
 
@@ -94,8 +94,8 @@ func (h *IncomeHandler) CreateIncome(w http.ResponseWriter, r *http.Request) {
 	if income.AccountID != nil {
 		_, err = tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3`, income.Amount, income.AccountID, userID)
 		if err != nil {
+			slog.Error("erro ao atualizar saldo ao inserir renda", "error", err, "userID", userID)
 			http.Error(w, "Erro ao atualizar saldo da conta", http.StatusInternalServerError)
-			fmt.Println("Erro:", err)
 			return
 		}
 	}
@@ -140,8 +140,8 @@ func (h *IncomeHandler) GetIncomes(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := h.DB.Query(baseQuery, args...)
 	if err != nil {
+		slog.Error("erro ao buscar rendas", "error", err, "userID", userID)
 		http.Error(w, "Erro ao buscar rendas", http.StatusInternalServerError)
-		fmt.Println("Erro:", err)
 		return
 	}
 	defer rows.Close()
@@ -227,8 +227,8 @@ func (h *IncomeHandler) UpdateIncome(w http.ResponseWriter, r *http.Request) {
 	query := `UPDATE incomes SET description = $1, amount = $2, date = $3, month = $4, year = $5, account_id = $6 WHERE id = $7 AND user_id = $8`
 	_, err = tx.Exec(query, income.Description, income.Amount, income.Date, income.Month, income.Year, income.AccountID, id, userID)
 	if err != nil {
+		slog.Error("erro ao atualizar renda", "error", err, "incomeID", id, "userID", userID)
 		http.Error(w, "Erro ao atualizar renda", http.StatusInternalServerError)
-		fmt.Println("Erro:", err)
 		return
 	}
 

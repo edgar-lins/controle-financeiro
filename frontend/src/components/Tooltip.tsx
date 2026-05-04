@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { HiQuestionMarkCircle } from "react-icons/hi";
 
-export function Tooltip({ description }) {
+interface TooltipProps {
+  description: string;
+}
+
+export function Tooltip({ description }: TooltipProps) {
   const [showTooltip, setShowTooltip] = useState(false);
 
   return (

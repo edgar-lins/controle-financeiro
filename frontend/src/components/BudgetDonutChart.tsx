@@ -2,21 +2,27 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { formatCurrencyBR } from '../utils/format';
 import { useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import type { Summary, Expense } from '../types';
 
 const COLORS = [
-  '#5AF0B3',   // Necessidades
-  '#5AF0B3cc', // Desejos
-  '#5AF0B333', // Investimento
+  '#5AF0B3',
+  '#5AF0B3cc',
+  '#5AF0B333',
 ];
 
-const categoryToGroup = {
+const categoryToGroup: Record<string, string> = {
   'Necessidades': 'essencial',
   'Desejos': 'lazer',
   'Investimento': 'investimento',
 };
 
-export function BudgetDonutChart({ summary, expenses = [] }) {
-  const [hoveredIndex, setHoveredIndex] = useState(null);
+interface BudgetDonutChartProps {
+  summary: Summary;
+  expenses?: Expense[];
+}
+
+export function BudgetDonutChart({ summary, expenses = [] }: BudgetDonutChartProps) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   if (!summary) return null;
@@ -29,7 +35,7 @@ export function BudgetDonutChart({ summary, expenses = [] }) {
 
   const totalSpent = data.reduce((sum, item) => sum + item.value, 0);
 
-  const handleCellEnter = useCallback((index) => {
+  const handleCellEnter = useCallback((index: number) => {
     setHoveredIndex(index);
   }, []);
 
@@ -37,7 +43,7 @@ export function BudgetDonutChart({ summary, expenses = [] }) {
     setHoveredIndex(null);
   }, []);
 
-  const handleMouseMove = useCallback((e) => {
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
     setMousePos({ x: e.clientX, y: e.clientY });
   }, []);
 
@@ -55,7 +61,6 @@ export function BudgetDonutChart({ summary, expenses = [] }) {
     const x = mousePos.x + offsetX + tooltipWidth > window.innerWidth
       ? mousePos.x - tooltipWidth - offsetX
       : mousePos.x + offsetX;
-    // Posiciona acima do cursor para não cobrir a fatia
     const y = mousePos.y - offsetY - 140;
 
     const tooltip = (
@@ -137,7 +142,6 @@ export function BudgetDonutChart({ summary, expenses = [] }) {
             </PieChart>
           </ResponsiveContainer>
 
-          {/* Centro do donut */}
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             <div className="text-center">
               {hoveredIndex !== null ? (
@@ -160,10 +164,8 @@ export function BudgetDonutChart({ summary, expenses = [] }) {
         </div>
       </div>
 
-      {/* Tooltip */}
       {renderTooltip()}
 
-      {/* Legenda */}
       <div className="flex justify-center gap-8 mt-8">
         {data.map((item, index) => (
           <div key={item.name} className="flex items-center gap-2">

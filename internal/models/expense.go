@@ -14,4 +14,6 @@ type Expense struct {
 	InstallmentNumber  int       `json:"installment_number"`
 	InstallmentTotal   int       `json:"installment_total"`
 	InstallmentGroupID *int64    `json:"installment_group_id,omitempty"`
+	IsRecurring        bool      `json:"is_recurring"`
+	RecurrenceDay      *int      `json:"recurrence_day,omitempty"`
 }

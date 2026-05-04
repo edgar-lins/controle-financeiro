@@ -1,7 +1,13 @@
 import { FaMoneyBill, FaPiggyBank, FaCreditCard, FaChartLine } from "react-icons/fa";
+import type { Account } from "../types";
 
-export function AccountTypeSelect({ value, onChange }) {
-  const accountTypes = [
+interface AccountTypeSelectProps {
+  value: string;
+  onChange: (value: Account["type"]) => void;
+}
+
+export function AccountTypeSelect({ value, onChange }: AccountTypeSelectProps) {
+  const accountTypes: { value: Account["type"]; label: string; icon: React.ElementType; color: string }[] = [
     { value: "corrente", label: "Conta Corrente", icon: FaMoneyBill, color: "text-blue-400" },
     { value: "poupanca", label: "Poupança", icon: FaPiggyBank, color: "text-emerald-400" },
     { value: "cartao", label: "Cartão de Crédito", icon: FaCreditCard, color: "text-purple-400" },

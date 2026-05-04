@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"os"
 
@@ -12,7 +13,7 @@ type ctxKey string
 
 const UserIDKey ctxKey = "userID"
 
-func WithAuth(next http.HandlerFunc) http.HandlerFunc {
+func WithAuth(db *sql.DB, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Authorization")
 		if auth == "" || len(auth) < 8 || auth[:7] != "Bearer " {
@@ -41,6 +42,22 @@ func WithAuth(next http.HandlerFunc) http.HandlerFunc {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
+
+		// Rejeita token emitido antes da última troca de senha
+		var passwordChangedAt sql.NullTime
+		err = db.QueryRow(`SELECT password_changed_at FROM users WHERE id = $1`, int(userID)).Scan(&passwordChangedAt)
+		if err != nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if passwordChangedAt.Valid {
+			iat, ok := claims["iat"].(float64)
+			if !ok || int64(iat) < passwordChangedAt.Time.Unix() {
+				http.Error(w, "Sessão expirada, faça login novamente", http.StatusUnauthorized)
+				return
+			}
+		}
+
 		ctx := context.WithValue(r.Context(), UserIDKey, int(userID))
 		next(w, r.WithContext(ctx))
 	}

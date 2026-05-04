@@ -1,7 +1,14 @@
-export function PeriodSelector({ month, year, onChange, disabled = false }) {
+interface PeriodSelectorProps {
+  month: string;
+  year: string;
+  onChange: (period: { month: string; year: string }) => void;
+  disabled?: boolean;
+}
+
+export function PeriodSelector({ month, year, onChange, disabled = false }: PeriodSelectorProps) {
   const monthNames = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
   ];
 
   const handlePrevious = () => {
@@ -24,7 +31,7 @@ export function PeriodSelector({ month, year, onChange, disabled = false }) {
     onChange({ month: String(newMonth), year: String(newYear) });
   };
 
-  const monthName = monthNames[parseInt(month) - 1] || 'Mês Atual';
+  const monthName = monthNames[parseInt(month) - 1] ?? 'Mês Atual';
 
   return (
     <div className="flex items-center gap-3">

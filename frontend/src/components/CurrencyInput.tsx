@@ -1,30 +1,31 @@
-import { useState } from "react";
+import { useState, type InputHTMLAttributes } from "react";
 
-export function CurrencyInput({ value, onChange, ...props }) {
+interface CurrencyInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange"> {
+  value: string | number;
+  onChange: (value: string) => void;
+}
+
+export function CurrencyInput({ value, onChange, ...props }: CurrencyInputProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [localValue, setLocalValue] = useState("");
 
   const handleFocus = () => {
     setIsEditing(true);
-    // Converte o valor para formato editável (com vírgula)
     if (value) {
-      const formatted = parseFloat(value).toFixed(2).replace(".", ",");
+      const formatted = parseFloat(String(value)).toFixed(2).replace(".", ",");
       setLocalValue(formatted);
     }
   };
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let input = e.target.value;
-    // Permite números, vírgula e ponto
     input = input.replace(/[^\d,]/g, "");
-    // Permite apenas uma vírgula
     const parts = input.split(",");
     if (parts.length > 2) {
       input = parts[0] + "," + parts.slice(1).join("");
     }
     setLocalValue(input);
 
-    // Atualiza o valor numérico imediatamente para não depender do blur
     const normalized = input.replace(",", ".");
     const numValue = parseFloat(normalized);
     if (!isNaN(numValue)) {
@@ -34,10 +35,10 @@ export function CurrencyInput({ value, onChange, ...props }) {
     }
   };
 
-  const handleBlur = (e) => {
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     setIsEditing(false);
     const input = e.target.value.replace(",", ".");
-    
+
     if (input === "" || input === ".") {
       onChange("");
       setLocalValue("");
@@ -57,7 +58,7 @@ export function CurrencyInput({ value, onChange, ...props }) {
   const displayValue = isEditing
     ? localValue
     : value
-    ? parseFloat(value).toLocaleString("pt-BR", {
+    ? parseFloat(String(value)).toLocaleString("pt-BR", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       })

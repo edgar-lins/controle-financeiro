@@ -3,7 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -32,6 +32,8 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		Date          string  `json:"date"`
 		AccountID     *int64  `json:"account_id"`
 		Installments  int     `json:"installments"`
+		IsRecurring   bool    `json:"is_recurring"`
+		RecurrenceDay *int    `json:"recurrence_day"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -88,8 +90,8 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 	}
 
 	insertFirstQuery := `
-		INSERT INTO expenses (description, amount, category, "group", payment_method, date, user_id, account_id, installment_number, installment_total, installment_group_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		INSERT INTO expenses (description, amount, category, "group", payment_method, date, user_id, account_id, installment_number, installment_total, installment_group_id, is_recurring, recurrence_day)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		RETURNING id;
 	`
 
@@ -98,16 +100,23 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
 
+	// Define o dia de recorrência: usa o dia da data fornecida se não especificado
+	recurrenceDay := req.RecurrenceDay
+	if req.IsRecurring && recurrenceDay == nil {
+		day := expenseDate.Day()
+		recurrenceDay = &day
+	}
+
 	// Cria a primeira parcela
 	var firstID int64
 	err = tx.QueryRow(insertFirstQuery,
 		req.Description, installmentAmount, req.Category, req.Group,
 		req.PaymentMethod, expenseDate, userID, req.AccountID,
-		1, req.Installments, nil,
+		1, req.Installments, nil, req.IsRecurring, recurrenceDay,
 	).Scan(&firstID)
 	if err != nil {
+		slog.Error("erro ao inserir gasto", "error", err, "userID", userID)
 		http.Error(w, "Erro ao inserir gasto", http.StatusInternalServerError)
-		fmt.Println("Erro:", err)
 		return
 	}
 
@@ -126,8 +135,8 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 			i, req.Installments, firstID,
 		)
 		if err != nil {
+			slog.Error("erro ao inserir parcela", "error", err, "installment", i, "userID", userID)
 			http.Error(w, "Erro ao inserir parcela", http.StatusInternalServerError)
-			fmt.Println("Erro parcela:", err)
 			return
 		}
 	}
@@ -177,7 +186,7 @@ func (h *ExpenseHandler) GetExpenses(w http.ResponseWriter, r *http.Request) {
 	yearParam := r.URL.Query().Get("year")
 	allInstallments := r.URL.Query().Get("all_installments") == "true"
 
-	baseQuery := `SELECT id, description, amount, category, "group", payment_method, date, account_id, installment_number, installment_total, installment_group_id FROM expenses WHERE user_id = $1`
+	baseQuery := `SELECT id, description, amount, category, "group", payment_method, date, account_id, installment_number, installment_total, installment_group_id, is_recurring, recurrence_day FROM expenses WHERE user_id = $1`
 	args := []interface{}{userID}
 
 	if allInstallments {
@@ -206,8 +215,8 @@ func (h *ExpenseHandler) GetExpenses(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := h.DB.Query(baseQuery, args...)
 	if err != nil {
+		slog.Error("erro ao buscar gastos", "error", err, "userID", userID)
 		http.Error(w, "Erro ao buscar gastos no banco", http.StatusInternalServerError)
-		fmt.Println("Erro:", err)
 		return
 	}
 	defer rows.Close()
@@ -219,6 +228,7 @@ func (h *ExpenseHandler) GetExpenses(w http.ResponseWriter, r *http.Request) {
 			&expense.ID, &expense.Description, &expense.Amount, &expense.Category,
 			&expense.Group, &expense.PaymentMethod, &expense.Date, &expense.AccountID,
 			&expense.InstallmentNumber, &expense.InstallmentTotal, &expense.InstallmentGroupID,
+			&expense.IsRecurring, &expense.RecurrenceDay,
 		)
 		if err != nil {
 			http.Error(w, "Erro ao ler dados do banco", http.StatusInternalServerError)
@@ -229,6 +239,152 @@ func (h *ExpenseHandler) GetExpenses(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(expenses)
+}
+
+// GetRecurringPending retorna as despesas recorrentes que ainda não têm cópia no mês/ano atual.
+func (h *ExpenseHandler) GetRecurringPending(w http.ResponseWriter, r *http.Request) {
+	userIDVal := r.Context().Value(middleware.UserIDKey)
+	userID, _ := userIDVal.(int)
+
+	now := time.Now()
+	month, year := int(now.Month()), now.Year()
+
+	// Busca as recorrentes mais recentes (uma por description+category+group para evitar duplicatas)
+	rows, err := h.DB.Query(`
+		SELECT DISTINCT ON (description, category, "group")
+			id, description, amount, category, "group", payment_method, account_id, recurrence_day
+		FROM expenses
+		WHERE user_id = $1
+		  AND is_recurring = TRUE
+		  AND NOT EXISTS (
+			SELECT 1 FROM expenses e2
+			WHERE e2.user_id = $1
+			  AND e2.description = expenses.description
+			  AND e2.category   = expenses.category
+			  AND e2."group"    = expenses."group"
+			  AND EXTRACT(MONTH FROM e2.date) = $2
+			  AND EXTRACT(YEAR  FROM e2.date) = $3
+		  )
+		ORDER BY description, category, "group", date DESC
+	`, userID, month, year)
+	if err != nil {
+		slog.Error("erro ao buscar recorrentes pendentes", "error", err, "userID", userID)
+		http.Error(w, "Erro ao buscar recorrentes", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	type Pending struct {
+		ID            int64  `json:"id"`
+		Description   string `json:"description"`
+		Amount        float64 `json:"amount"`
+		Category      string `json:"category"`
+		Group         string `json:"group"`
+		PaymentMethod string `json:"payment_method"`
+		AccountID     *int64 `json:"account_id"`
+		RecurrenceDay *int   `json:"recurrence_day"`
+	}
+
+	pending := []Pending{}
+	for rows.Next() {
+		var p Pending
+		if err := rows.Scan(&p.ID, &p.Description, &p.Amount, &p.Category, &p.Group, &p.PaymentMethod, &p.AccountID, &p.RecurrenceDay); err != nil {
+			continue
+		}
+		pending = append(pending, p)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(pending)
+}
+
+// ConfirmRecurring cria uma cópia da despesa recorrente no mês atual.
+func (h *ExpenseHandler) ConfirmRecurring(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userIDVal := r.Context().Value(middleware.UserIDKey)
+	userID, _ := userIDVal.(int)
+
+	var req struct {
+		SourceID  int64  `json:"source_id"`
+		AccountID *int64 `json:"account_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Dados inválidos", http.StatusBadRequest)
+		return
+	}
+
+	// Busca o template da recorrente
+	var tmpl models.Expense
+	err := h.DB.QueryRow(`
+		SELECT description, amount, category, "group", payment_method, account_id, recurrence_day
+		FROM expenses WHERE id = $1 AND user_id = $2 AND is_recurring = TRUE
+	`, req.SourceID, userID).Scan(
+		&tmpl.Description, &tmpl.Amount, &tmpl.Category, &tmpl.Group,
+		&tmpl.PaymentMethod, &tmpl.AccountID, &tmpl.RecurrenceDay,
+	)
+	if err != nil {
+		http.Error(w, "Recorrente não encontrada", http.StatusNotFound)
+		return
+	}
+
+	accountID := tmpl.AccountID
+	if req.AccountID != nil {
+		accountID = req.AccountID
+	}
+
+	// Monta a data: dia de recorrência no mês atual (ou hoje se não definido)
+	now := time.Now()
+	day := now.Day()
+	if tmpl.RecurrenceDay != nil {
+		day = *tmpl.RecurrenceDay
+	}
+	// Garante que o dia seja válido para o mês atual
+	lastDay := time.Date(now.Year(), now.Month()+1, 0, 0, 0, 0, 0, time.UTC).Day()
+	if day > lastDay {
+		day = lastDay
+	}
+	confirmDate := time.Date(now.Year(), now.Month(), day, 0, 0, 0, 0, time.UTC)
+
+	tx, err := h.DB.Begin()
+	if err != nil {
+		http.Error(w, "Erro ao iniciar transação", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	var newID int64
+	err = tx.QueryRow(`
+		INSERT INTO expenses (description, amount, category, "group", payment_method, date, user_id, account_id, installment_number, installment_total, is_recurring, recurrence_day)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, 1, TRUE, $9)
+		RETURNING id
+	`, tmpl.Description, tmpl.Amount, tmpl.Category, tmpl.Group,
+		tmpl.PaymentMethod, confirmDate, userID, accountID, tmpl.RecurrenceDay,
+	).Scan(&newID)
+	if err != nil {
+		slog.Error("erro ao confirmar recorrente", "error", err, "userID", userID)
+		http.Error(w, "Erro ao criar despesa", http.StatusInternalServerError)
+		return
+	}
+
+	if accountID != nil {
+		if _, err = tx.Exec(`UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND user_id = $3`,
+			tmpl.Amount, accountID, userID); err != nil {
+			http.Error(w, "Erro ao atualizar saldo", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		http.Error(w, "Erro ao confirmar transação", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"id": newID, "message": "Despesa recorrente confirmada"})
 }
 
 func (h *ExpenseHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
@@ -299,8 +455,8 @@ func (h *ExpenseHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 	query := `UPDATE expenses SET description = $1, amount = $2, category = $3, "group" = $4, payment_method = $5, date = $6, account_id = $7 WHERE id = $8 AND user_id = $9`
 	_, err = tx.Exec(query, req.Description, req.Amount, req.Category, req.Group, req.PaymentMethod, expenseDate, req.AccountID, id, userID)
 	if err != nil {
+		slog.Error("erro ao atualizar gasto", "error", err, "expenseID", id, "userID", userID)
 		http.Error(w, "Erro ao atualizar gasto", http.StatusInternalServerError)
-		fmt.Println("Erro:", err)
 		return
 	}
 

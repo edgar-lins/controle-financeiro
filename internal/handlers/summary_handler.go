@@ -3,7 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -18,7 +18,9 @@ type SummaryHandler struct {
 type Summary struct {
 	Mes             string  `json:"mes"`
 	Ano             int     `json:"ano"`
-	RendaTotal      float64 `json:"renda_total"`
+	Salario         float64 `json:"salario"`      // salário fixo das preferências
+	RendaExtra      float64 `json:"renda_extra"`  // rendas extras registradas no mês
+	RendaTotal      float64 `json:"renda_total"`  // salario + renda_extra
 	GastoTotal      float64 `json:"gasto_total"`
 	IdealFixos      float64 `json:"ideal_fixos"`
 	IdealLazer      float64 `json:"ideal_lazer"`
@@ -47,7 +49,6 @@ func (h *SummaryHandler) GetMonthlyHistory(w http.ResponseWriter, r *http.Reques
 	cutoff := now.AddDate(0, -11, 0)
 	cutoffDate := time.Date(cutoff.Year(), cutoff.Month(), 1, 0, 0, 0, 0, time.UTC)
 
-	// Busca totais de renda dos últimos 12 meses em 1 query
 	incomeMap := make(map[[2]int]float64)
 	incomeRows, err := h.DB.Query(`
 		SELECT EXTRACT(YEAR FROM date)::int, EXTRACT(MONTH FROM date)::int, COALESCE(SUM(amount), 0)
@@ -56,8 +57,8 @@ func (h *SummaryHandler) GetMonthlyHistory(w http.ResponseWriter, r *http.Reques
 		GROUP BY 1, 2
 	`, userID, cutoffDate)
 	if err != nil {
+		slog.Error("erro ao buscar histórico de rendas", "error", err, "userID", userID)
 		http.Error(w, "Erro ao buscar histórico de rendas", http.StatusInternalServerError)
-		fmt.Println("Erro:", err)
 		return
 	}
 	defer incomeRows.Close()
@@ -68,7 +69,6 @@ func (h *SummaryHandler) GetMonthlyHistory(w http.ResponseWriter, r *http.Reques
 		incomeMap[[2]int{y, m}] = total
 	}
 
-	// Busca totais de despesas dos últimos 12 meses em 1 query
 	expenseMap := make(map[[2]int]float64)
 	expenseRows, err := h.DB.Query(`
 		SELECT EXTRACT(YEAR FROM date)::int, EXTRACT(MONTH FROM date)::int, COALESCE(SUM(amount), 0)
@@ -77,8 +77,8 @@ func (h *SummaryHandler) GetMonthlyHistory(w http.ResponseWriter, r *http.Reques
 		GROUP BY 1, 2
 	`, userID, cutoffDate)
 	if err != nil {
+		slog.Error("erro ao buscar histórico de despesas", "error", err, "userID", userID)
 		http.Error(w, "Erro ao buscar histórico de despesas", http.StatusInternalServerError)
-		fmt.Println("Erro:", err)
 		return
 	}
 	defer expenseRows.Close()
@@ -89,7 +89,6 @@ func (h *SummaryHandler) GetMonthlyHistory(w http.ResponseWriter, r *http.Reques
 		expenseMap[[2]int{y, m}] = total
 	}
 
-	// Monta os 12 meses em ordem, preenchendo zero onde não há dados
 	monthlyData := make([]MonthlyData, 0, 12)
 	for i := 11; i >= 0; i-- {
 		t := now.AddDate(0, -i, 0)
@@ -142,8 +141,8 @@ func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 			AND user_id = $3
 	`, month, year, userID).Scan(&totalIncome)
 	if err != nil {
+		slog.Error("erro ao calcular renda total", "error", err, "userID", userID, "month", month, "year", year)
 		http.Error(w, "Erro ao calcular renda", http.StatusInternalServerError)
-		fmt.Println("Erro:", err)
 		return
 	}
 
@@ -156,15 +155,13 @@ func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 			AND user_id = $3
 	`, month, year, userID).Scan(&totalExpenses)
 	if err != nil {
+		slog.Error("erro ao calcular gastos totais", "error", err, "userID", userID, "month", month, "year", year)
 		http.Error(w, "Erro ao calcular gastos", http.StatusInternalServerError)
-		fmt.Println("Erro:", err)
 		return
 	}
 
-	// 🔹 Busca gastos por grupo (50/30/20) usando o campo group
 	var realFixos, realLazer, realInvest float64
 
-	// Essenciais (50%)
 	h.DB.QueryRow(`
 		SELECT COALESCE(SUM(amount), 0)
 		FROM expenses
@@ -174,7 +171,6 @@ func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 		AND user_id = $3
 	`, month, year, userID).Scan(&realFixos)
 
-	// Lazer (30%)
 	h.DB.QueryRow(`
 		SELECT COALESCE(SUM(amount), 0)
 		FROM expenses
@@ -184,7 +180,6 @@ func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 		AND user_id = $3
 	`, month, year, userID).Scan(&realLazer)
 
-	// Investimento (20%)
 	h.DB.QueryRow(`
 		SELECT COALESCE(SUM(amount), 0)
 		FROM expenses
@@ -194,47 +189,37 @@ func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 		AND user_id = $3
 	`, month, year, userID).Scan(&realInvest)
 
-	// Buscar preferências do usuário
 	var expensesPercent, entertainmentPercent, investmentPercent, expectedMonthlyIncome float64
-	expensesPercent, entertainmentPercent, investmentPercent = 50, 30, 20 // padrão
+	expensesPercent, entertainmentPercent, investmentPercent = 50, 30, 20
 
 	err = h.DB.QueryRow(`
 		SELECT expenses_percent, entertainment_percent, investment_percent, expected_monthly_income
 		FROM user_preferences
 		WHERE user_id = $1
 	`, userID).Scan(&expensesPercent, &entertainmentPercent, &investmentPercent, &expectedMonthlyIncome)
-
-	// Se não encontrar preferências, usa valores padrão (já definidos acima)
 	if err != nil && err != sql.ErrNoRows {
-		fmt.Println("Erro ao buscar preferências:", err)
+		slog.Warn("erro ao buscar preferências do usuário", "error", err, "userID", userID)
 	}
 
-	// Base para cálculo dos ideais: renda registrada no mês ou, se zero, renda mensal esperada
-	incomeBase := totalIncome
-	if incomeBase == 0 {
-		incomeBase = expectedMonthlyIncome
-	}
+	// Salário fixo (preferências) + extras registrados no mês = base total do orçamento
+	incomeBase := expectedMonthlyIncome + totalIncome
 
-	// Calcular patrimônio total (soma de TODAS as contas)
 	var patrimonioTotal float64
-	err = h.DB.QueryRow(`
+	if err = h.DB.QueryRow(`
 		SELECT COALESCE(SUM(balance), 0)
 		FROM accounts
 		WHERE user_id = $1
-	`, userID).Scan(&patrimonioTotal)
-	if err != nil {
-		fmt.Println("Erro ao calcular patrimônio total:", err)
+	`, userID).Scan(&patrimonioTotal); err != nil {
+		slog.Warn("erro ao calcular patrimônio total", "error", err, "userID", userID)
 	}
 
-	// Saldo disponível = apenas contas corrente (cartão é dívida, não saldo)
 	var saldoRestante float64
-	err = h.DB.QueryRow(`
+	if err = h.DB.QueryRow(`
 		SELECT COALESCE(SUM(balance), 0)
 		FROM accounts
 		WHERE user_id = $1 AND type = 'corrente'
-	`, userID).Scan(&saldoRestante)
-	if err != nil {
-		fmt.Println("Erro ao calcular saldo restante:", err)
+	`, userID).Scan(&saldoRestante); err != nil {
+		slog.Warn("erro ao calcular saldo restante", "error", err, "userID", userID)
 	}
 
 	mesNames := [...]string{"", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"}
@@ -243,7 +228,9 @@ func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 	summary := Summary{
 		Mes:             mesName,
 		Ano:             year,
-		RendaTotal:      totalIncome,
+		Salario:         expectedMonthlyIncome,
+		RendaExtra:      totalIncome,
+		RendaTotal:      incomeBase,
 		GastoTotal:      totalExpenses,
 		IdealFixos:      incomeBase * (expensesPercent / 100),
 		IdealLazer:      incomeBase * (entertainmentPercent / 100),
@@ -301,10 +288,9 @@ func (h *SummaryHandler) GetExpenseBreakdown(w http.ResponseWriter, r *http.Requ
 		GROUP BY "group", category
 		ORDER BY "group", total DESC
 	`, month, year, userID)
-
 	if err != nil {
+		slog.Error("erro ao buscar breakdown de despesas", "error", err, "userID", userID)
 		http.Error(w, "Erro ao buscar breakdown", http.StatusInternalServerError)
-		fmt.Println("Erro:", err)
 		return
 	}
 	defer rows.Close()

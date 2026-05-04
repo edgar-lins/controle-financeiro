@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { HiDownload, HiCheckCircle, HiClock } from "react-icons/hi";
+import { HiDownload } from "react-icons/hi";
 import API_URL from "../config/api";
+import type { Account, Expense, Income, Goal, Summary } from "../types";
 
 export function ExportData() {
   const [downloading, setDownloading] = useState(false);
@@ -9,41 +10,35 @@ export function ExportData() {
     try {
       setDownloading(true);
       const token = localStorage.getItem("token");
-      const apiUrl = API_URL;
 
-      // Buscar todos os dados
       const [expensesRes, incomesRes, accountsRes, goalsRes, summaryRes] = await Promise.all([
-        fetch(`${apiUrl}/expenses`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${apiUrl}/incomes`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${apiUrl}/accounts`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${apiUrl}/goals`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${apiUrl}/summary?month=${new Date().getMonth() + 1}&year=${new Date().getFullYear()}`, {
+        fetch(`${API_URL}/expenses`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_URL}/incomes`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_URL}/accounts`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_URL}/goals`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_URL}/summary?month=${new Date().getMonth() + 1}&year=${new Date().getFullYear()}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
 
-      const expenses = (await expensesRes.json()) || [];
-      const incomes = (await incomesRes.json()) || [];
-      const accounts = (await accountsRes.json()) || [];
-      const goals = (await goalsRes.json()) || [];
-      const summary = (await summaryRes.json()) || {};
+      const expenses: Expense[] = (await expensesRes.json()) || [];
+      const incomes: Income[] = (await incomesRes.json()) || [];
+      const accounts: Account[] = (await accountsRes.json()) || [];
+      const goals: Goal[] = (await goalsRes.json()) || [];
+      const summary: Summary = (await summaryRes.json()) || {};
 
-      // Criar array de arrays para CSV (melhor compatibilidade com Excel)
-      const csvData = [];
+      const csvData: (string | number)[][] = [];
 
-      // Cabeçalho
       csvData.push(["RELATÓRIO FINANCEIRO COMPLETO"]);
       csvData.push(["Data de geração", new Date().toLocaleDateString("pt-BR")]);
       csvData.push([]);
 
-      // Resumo do mês
       csvData.push(["RESUMO DO MÊS"]);
       csvData.push(["Renda Total", formatarBRL(summary.renda_total || 0)]);
       csvData.push(["Gasto Total", formatarBRL(summary.gasto_total || 0)]);
       csvData.push(["Saldo Restante", formatarBRL(summary.saldo_restante || 0)]);
       csvData.push([]);
 
-      // Contas
       csvData.push(["CONTAS BANCÁRIAS"]);
       csvData.push(["Nome", "Tipo", "Saldo"]);
       accounts.forEach((acc) => {
@@ -53,29 +48,26 @@ export function ExportData() {
       csvData.push(["TOTAL", "", formatarBRL(totalContas)]);
       csvData.push([]);
 
-      // Gastos
       csvData.push(["GASTOS"]);
       csvData.push(["Data", "Categoria", "Valor", "Conta"]);
       expenses.forEach((exp) => {
         const date = new Date(exp.date).toLocaleDateString("pt-BR");
-        csvData.push([date, exp.category, formatarBRL(exp.amount), exp.account_name || "-"]);
+        csvData.push([date, exp.category, formatarBRL(exp.amount), exp.account_name ?? "-"]);
       });
       const totalGastos = expenses.reduce((sum, exp) => sum + exp.amount, 0);
       csvData.push(["TOTAL", "", formatarBRL(totalGastos), ""]);
       csvData.push([]);
 
-      // Rendas
       csvData.push(["RENDAS"]);
-      csvData.push(["Data", "Categoria", "Valor", "Conta"]);
+      csvData.push(["Data", "Descrição", "Valor"]);
       incomes.forEach((inc) => {
         const date = new Date(inc.date).toLocaleDateString("pt-BR");
-        csvData.push([date, inc.category, formatarBRL(inc.amount), inc.account_name || "-"]);
+        csvData.push([date, inc.description, formatarBRL(inc.amount)]);
       });
       const totalRendas = incomes.reduce((sum, inc) => sum + inc.amount, 0);
-      csvData.push(["TOTAL", "", formatarBRL(totalRendas), ""]);
+      csvData.push(["TOTAL", "", formatarBRL(totalRendas)]);
       csvData.push([]);
 
-      // Metas
       csvData.push(["METAS FINANCEIRAS"]);
       csvData.push(["Nome", "Meta", "Progresso", "Faltam", "Status", "Prazo"]);
       goals.forEach((goal) => {
@@ -93,10 +85,7 @@ export function ExportData() {
         ]);
       });
 
-      // Converter para CSV
       const csv = csvData.map(row => row.map(cell => `"${cell}"`).join(",")).join("\n");
-
-      // Baixar arquivo
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -114,11 +103,8 @@ export function ExportData() {
     }
   }
 
-  function formatarBRL(valor) {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(valor);
+  function formatarBRL(valor: number): string {
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
   }
 
   return (

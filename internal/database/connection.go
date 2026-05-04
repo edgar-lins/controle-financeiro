@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -53,12 +54,12 @@ func Connect() *sql.DB {
 		panic("Banco inacessível: " + err.Error())
 	}
 
-	fmt.Println("✅ Conexão com o banco de dados estabelecida com sucesso!")
+	slog.Info("banco de dados conectado")
 	return db
 }
 
 func RunMigrations(db *sql.DB) error {
-	fmt.Println("🔄 Iniciando migrações automáticas...")
+	slog.Info("iniciando migrações")
 
 	files, err := os.ReadDir("./migrations")
 	if err != nil {
@@ -71,22 +72,20 @@ func RunMigrations(db *sql.DB) error {
 			filenames = append(filenames, f.Name())
 		}
 	}
-	sort.Strings(filenames) // Garante a ordem correta (001, 002, etc)
+	sort.Strings(filenames)
 
 	for _, filename := range filenames {
-		fmt.Printf("🚀 Executando: %s\n", filename)
+		slog.Debug("executando migration", "file", filename)
 		content, err := os.ReadFile(filepath.Join("./migrations", filename))
 		if err != nil {
 			return err
 		}
 
-		_, err = db.Exec(string(content))
-		if err != nil {
-			// Ignoramos erros de "já existe", mas relatamos outros
-			fmt.Printf("⚠️  Nota em %s: %v\n", filename, err)
+		if _, err = db.Exec(string(content)); err != nil {
+			slog.Warn("nota na migration", "file", filename, "error", err)
 		}
 	}
 
-	fmt.Println("✅ Banco de dados atualizado com sucesso!")
+	slog.Info("migrações concluídas")
 	return nil
 }

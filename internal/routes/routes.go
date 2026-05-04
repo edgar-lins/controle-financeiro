@@ -17,18 +17,22 @@ func SetupRoutes(db *sql.DB) {
 	goalHandler := handlers.GoalHandler{DB: db}
 	migrationHandler := handlers.MigrationHandler{DB: db}
 
+	auth := func(next http.HandlerFunc) http.HandlerFunc {
+		return middleware.WithAuth(db, next)
+	}
+
 	// Auth endpoints (public)
 	http.HandleFunc("/auth/signup", authHandler.Signup)
 	http.HandleFunc("/auth/login", authHandler.Login)
 	http.HandleFunc("/auth/forgot-password", authHandler.ForgotPassword)
 	http.HandleFunc("/auth/reset-password", authHandler.ResetPassword)
-	http.HandleFunc("/auth/delete-account", middleware.WithAuth(authHandler.DeleteAccount))
+	http.HandleFunc("/auth/delete-account", auth(authHandler.DeleteAccount))
 
 	http.HandleFunc("/expenses", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
-			middleware.WithAuth(expenseHandler.CreateExpense)(w, r)
+			auth(expenseHandler.CreateExpense)(w, r)
 		} else if r.Method == http.MethodGet {
-			middleware.WithAuth(expenseHandler.GetExpenses)(w, r)
+			auth(expenseHandler.GetExpenses)(w, r)
 		} else {
 			http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
 		}
@@ -36,63 +40,64 @@ func SetupRoutes(db *sql.DB) {
 
 	http.HandleFunc("/incomes", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
-			middleware.WithAuth(incomeHandler.CreateIncome)(w, r)
+			auth(incomeHandler.CreateIncome)(w, r)
 		} else if r.Method == http.MethodGet {
-			middleware.WithAuth(incomeHandler.GetIncomes)(w, r)
+			auth(incomeHandler.GetIncomes)(w, r)
 		} else {
 			http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
 		}
 	})
 
-	http.HandleFunc("/summary", middleware.WithAuth(summaryHandler.GetSummary))
-	http.HandleFunc("/summary/history", middleware.WithAuth(summaryHandler.GetMonthlyHistory))
-	http.HandleFunc("/summary/breakdown", middleware.WithAuth(summaryHandler.GetExpenseBreakdown))
-	http.HandleFunc("/expenses/delete", middleware.WithAuth(expenseHandler.DeleteExpense))
-	http.HandleFunc("/expenses/update", middleware.WithAuth(expenseHandler.UpdateExpense))
-	http.HandleFunc("/incomes/delete", middleware.WithAuth(incomeHandler.DeleteIncome))
-	http.HandleFunc("/incomes/update", middleware.WithAuth(incomeHandler.UpdateIncome))
+	http.HandleFunc("/summary", auth(summaryHandler.GetSummary))
+	http.HandleFunc("/summary/history", auth(summaryHandler.GetMonthlyHistory))
+	http.HandleFunc("/summary/breakdown", auth(summaryHandler.GetExpenseBreakdown))
+	http.HandleFunc("/expenses/delete", auth(expenseHandler.DeleteExpense))
+	http.HandleFunc("/expenses/update", auth(expenseHandler.UpdateExpense))
+	http.HandleFunc("/expenses/recurring-pending", auth(expenseHandler.GetRecurringPending))
+	http.HandleFunc("/expenses/confirm-recurring", auth(expenseHandler.ConfirmRecurring))
+	http.HandleFunc("/incomes/delete", auth(incomeHandler.DeleteIncome))
+	http.HandleFunc("/incomes/update", auth(incomeHandler.UpdateIncome))
 
 	// Premium features - Accounts
 	http.HandleFunc("/accounts", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
-			middleware.WithAuth(accountHandler.CreateAccount)(w, r)
+			auth(accountHandler.CreateAccount)(w, r)
 		} else if r.Method == http.MethodGet {
-			middleware.WithAuth(accountHandler.GetAccounts)(w, r)
+			auth(accountHandler.GetAccounts)(w, r)
 		} else {
 			http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
 		}
 	})
-	http.HandleFunc("/accounts/transfer", middleware.WithAuth(accountHandler.TransferFunds))
-	http.HandleFunc("/accounts/delete", middleware.WithAuth(accountHandler.DeleteAccount))
-	http.HandleFunc("/accounts/update", middleware.WithAuth(accountHandler.UpdateAccount))
+	http.HandleFunc("/accounts/transfer", auth(accountHandler.TransferFunds))
+	http.HandleFunc("/accounts/delete", auth(accountHandler.DeleteAccount))
+	http.HandleFunc("/accounts/update", auth(accountHandler.UpdateAccount))
 
 	// Premium features - Goals
 	http.HandleFunc("/goals", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
-			middleware.WithAuth(goalHandler.CreateGoal)(w, r)
+			auth(goalHandler.CreateGoal)(w, r)
 		} else if r.Method == http.MethodGet {
-			middleware.WithAuth(goalHandler.GetGoals)(w, r)
+			auth(goalHandler.GetGoals)(w, r)
 		} else {
 			http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
 		}
 	})
-	http.HandleFunc("/goals/delete", middleware.WithAuth(goalHandler.DeleteGoal))
-	http.HandleFunc("/goals/update", middleware.WithAuth(goalHandler.UpdateGoal))
-	http.HandleFunc("/goals/add-money", middleware.WithAuth(goalHandler.AddMoneyToGoal))
+	http.HandleFunc("/goals/delete", auth(goalHandler.DeleteGoal))
+	http.HandleFunc("/goals/update", auth(goalHandler.UpdateGoal))
+	http.HandleFunc("/goals/add-money", auth(goalHandler.AddMoneyToGoal))
 
 	// User Preferences
 	http.HandleFunc("/preferences", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
-			middleware.WithAuth(handlers.GetUserPreferences(db))(w, r)
+			auth(handlers.GetUserPreferences(db))(w, r)
 		} else if r.Method == http.MethodPut {
-			middleware.WithAuth(handlers.UpdateUserPreferences(db))(w, r)
+			auth(handlers.UpdateUserPreferences(db))(w, r)
 		} else {
 			http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
 		}
 	})
 
 	// Migration endpoints
-	http.HandleFunc("/migration/check", middleware.WithAuth(migrationHandler.CheckUnlinkedTransactions))
-	http.HandleFunc("/migration/migrate", middleware.WithAuth(migrationHandler.MigrateUnlinkedTransactions))
-
+	http.HandleFunc("/migration/check", auth(migrationHandler.CheckUnlinkedTransactions))
+	http.HandleFunc("/migration/migrate", auth(migrationHandler.MigrateUnlinkedTransactions))
 }
