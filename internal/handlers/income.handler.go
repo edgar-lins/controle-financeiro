@@ -35,6 +35,11 @@ func (h *IncomeHandler) CreateIncome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Amount <= 0 {
+		http.Error(w, "Valor deve ser maior que zero", http.StatusBadRequest)
+		return
+	}
+
 	incomeDate := time.Now().UTC()
 	if strings.TrimSpace(req.Date) != "" {
 		parsed, err := time.Parse("2006-01-02", req.Date)

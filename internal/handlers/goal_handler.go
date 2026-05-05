@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"strings"
 	"net/http"
 	"time"
 
@@ -26,6 +27,15 @@ func (h *GoalHandler) CreateGoal(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&goalReq); err != nil {
 		http.Error(w, "Dados inválidos", http.StatusBadRequest)
+		return
+	}
+
+	if strings.TrimSpace(goalReq.Name) == "" {
+		http.Error(w, "Nome da meta é obrigatório", http.StatusBadRequest)
+		return
+	}
+	if goalReq.TargetAmount <= 0 {
+		http.Error(w, "Valor alvo deve ser maior que zero", http.StatusBadRequest)
 		return
 	}
 
@@ -168,6 +178,11 @@ func (h *GoalHandler) AddMoneyToGoal(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Dados inválidos", http.StatusBadRequest)
+		return
+	}
+
+	if req.Amount <= 0 {
+		http.Error(w, "Valor deve ser maior que zero", http.StatusBadRequest)
 		return
 	}
 

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"time"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -56,6 +57,11 @@ func Connect() *sql.DB {
 	if err != nil {
 		panic("Banco inacessível: " + err.Error())
 	}
+
+	// Configura pool de conexões
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(5 * time.Minute)
 
 	slog.Info("banco de dados conectado")
 	return db

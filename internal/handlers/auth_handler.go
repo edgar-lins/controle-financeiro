@@ -139,6 +139,12 @@ func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Rate limit: máx 5 requisições por IP em 15 minutos (prefixo separa do rate limit de login)
+	if !h.isLoginAllowed("forgot:" + r.RemoteAddr) {
+		w.WriteHeader(http.StatusOK) // não revela que foi bloqueado
+		return
+	}
+
 	var req struct {
 		Email string `json:"email"`
 	}

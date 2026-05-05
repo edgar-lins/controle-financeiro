@@ -24,6 +24,24 @@ func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if strings.TrimSpace(acc.Name) == "" {
+		http.Error(w, "Nome da conta é obrigatório", http.StatusBadRequest)
+		return
+	}
+	validTypes := map[string]bool{"corrente": true, "poupanca": true, "cartao": true, "investimento": true}
+	if !validTypes[acc.Type] {
+		http.Error(w, "Tipo de conta inválido", http.StatusBadRequest)
+		return
+	}
+	if acc.ClosingDay != nil && (*acc.ClosingDay < 1 || *acc.ClosingDay > 31) {
+		http.Error(w, "Dia de fechamento deve ser entre 1 e 31", http.StatusBadRequest)
+		return
+	}
+	if acc.DueDay != nil && (*acc.DueDay < 1 || *acc.DueDay > 31) {
+		http.Error(w, "Dia de vencimento deve ser entre 1 e 31", http.StatusBadRequest)
+		return
+	}
+
 	query := `
 		INSERT INTO accounts (user_id, name, type, balance, credit_limit, closing_day, due_day)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -154,22 +172,6 @@ func (h *AccountHandler) TransferFunds(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the current balance of the origin account
-	var currentBalance float64
-	if err := h.DB.QueryRow(`
-		SELECT balance FROM accounts WHERE user_id = $1 AND id = $2
-	`, userID, req.FromAccountID).Scan(&currentBalance); err != nil {
-		// log removido para produção
-		http.Error(w, "Erro ao calcular saldo", http.StatusInternalServerError)
-		return
-	}
-
-	// Validate sufficient balance
-	if currentBalance < req.Amount {
-		http.Error(w, "Saldo insuficiente para esta transferência", http.StatusBadRequest)
-		return
-	}
-
 	tx, err := h.DB.Begin()
 	if err != nil {
 		// log removido para produção
@@ -178,11 +180,22 @@ func (h *AccountHandler) TransferFunds(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	dateValue := req.Date
-	if dateValue == "" {
-		// use today's date if not provided
-		dateValue = "" // handled by DEFAULT if empty
+	// Bloqueia a linha da conta de origem antes de ler o saldo,
+	// prevenindo race condition com requisições simultâneas (SELECT FOR UPDATE).
+	var currentBalance float64
+	if err = tx.QueryRow(`
+		SELECT balance FROM accounts WHERE user_id = $1 AND id = $2 FOR UPDATE
+	`, userID, req.FromAccountID).Scan(&currentBalance); err != nil {
+		http.Error(w, "Erro ao calcular saldo", http.StatusInternalServerError)
+		return
 	}
+
+	if currentBalance < req.Amount {
+		http.Error(w, "Saldo insuficiente para esta transferência", http.StatusBadRequest)
+		return
+	}
+
+	dateValue := req.Date
 
 	_, err = tx.Exec(`
 		INSERT INTO transfers (user_id, from_account_id, to_account_id, amount, description, date)

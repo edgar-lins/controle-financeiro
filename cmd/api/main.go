@@ -36,6 +36,14 @@ func requestLogger(next http.Handler) http.Handler {
 	})
 }
 
+// maxBytesMiddleware limita o tamanho do body a 1MB para prevenir DoS
+func maxBytesMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, 1*1024*1024) // 1MB
+		next.ServeHTTP(w, r)
+	})
+}
+
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
@@ -87,6 +95,12 @@ func main() {
 
 	slog.Info("servidor iniciando", "env", env, "port", port)
 
+	// Bloqueia startup em produção se JWT_SECRET não estiver configurado
+	if env == "production" && os.Getenv("JWT_SECRET") == "" {
+		slog.Error("JWT_SECRET não configurado — obrigatório em produção")
+		os.Exit(1)
+	}
+
 	db := database.Connect()
 	defer db.Close()
 
@@ -94,7 +108,7 @@ func main() {
 
 	routes.SetupRoutes(db)
 
-	handler := requestLogger(corsMiddleware(http.DefaultServeMux))
+	handler := requestLogger(maxBytesMiddleware(corsMiddleware(http.DefaultServeMux)))
 
 	slog.Info("servidor pronto", "addr", "http://localhost:"+port)
 	if err := http.ListenAndServe(":"+port, handler); err != nil {

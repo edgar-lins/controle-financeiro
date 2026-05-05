@@ -60,8 +60,17 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		req.Group = "essencial"
 	}
 
+	if req.Amount <= 0 {
+		http.Error(w, "Valor deve ser maior que zero", http.StatusBadRequest)
+		return
+	}
+
 	if req.Installments < 1 {
 		req.Installments = 1
+	}
+	if req.Installments > 48 {
+		http.Error(w, "Máximo de 48 parcelas", http.StatusBadRequest)
+		return
 	}
 
 	userIDVal := r.Context().Value(middleware.UserIDKey)
@@ -348,6 +357,24 @@ func (h *ExpenseHandler) ConfirmRecurring(w http.ResponseWriter, r *http.Request
 		day = lastDay
 	}
 	confirmDate := time.Date(now.Year(), now.Month(), day, 0, 0, 0, 0, time.UTC)
+
+	// Verifica se já existe confirmação para este mês (evita duplicatas)
+	var alreadyExists bool
+	h.DB.QueryRow(`
+		SELECT EXISTS(
+			SELECT 1 FROM expenses
+			WHERE user_id = $1
+			  AND description = $2
+			  AND category   = $3
+			  AND EXTRACT(MONTH FROM date) = $4
+			  AND EXTRACT(YEAR  FROM date) = $5
+			  AND is_recurring = TRUE
+		)
+	`, userID, tmpl.Description, tmpl.Category, now.Month(), now.Year()).Scan(&alreadyExists)
+	if alreadyExists {
+		http.Error(w, "Despesa recorrente já confirmada neste mês", http.StatusConflict)
+		return
+	}
 
 	tx, err := h.DB.Begin()
 	if err != nil {
