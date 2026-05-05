@@ -71,9 +71,10 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 0.8; }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
 .custom-scrollbar { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) var(--b-surface); }
 
-/* Material Symbols Rounded */
-.msr {
-  font-family: 'Material Symbols Rounded';
+/* Material Symbols base — comportamento compartilhado */
+.msr,
+.material-symbols-outlined,
+.material-symbols-rounded {
   font-weight: normal;
   font-style: normal;
   font-size: 24px;
@@ -89,6 +90,11 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 0.8; }
   -webkit-font-smoothing: antialiased;
   user-select: none;
 }
+
+/* Cada variante aponta para a fonte correta */
+.material-symbols-outlined { font-family: 'Material Symbols Outlined'; }
+.material-symbols-rounded  { font-family: 'Material Symbols Rounded'; }
+.msr                        { font-family: 'Material Symbols Rounded'; }
 
 /* Broto card base */
 .b-card {

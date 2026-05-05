@@ -19,11 +19,14 @@ func Connect() *sql.DB {
 		env = "development"
 	}
 
-	// Tenta carregar .env baseado no ambiente
+	// Tenta carregar .env buscando da raiz do projeto para cima
+	// Funciona tanto ao rodar de cmd/api/ quanto da raiz
 	if env == "development" {
 		_ = godotenv.Load(".env.development")
+		_ = godotenv.Load("../../.env.development")
 	}
-	_ = godotenv.Load() // fallback para .env
+	_ = godotenv.Load()        // tenta na raiz atual
+	_ = godotenv.Load("../../.env") // tenta subindo de cmd/api/
 
 	// Verifica se existe DATABASE_URL (Render/produção)
 	databaseURL := os.Getenv("DATABASE_URL")
